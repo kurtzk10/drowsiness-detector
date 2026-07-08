@@ -17,10 +17,11 @@ GRAY   = (160, 160, 160)
 DARK   = (30,  30,  30)
 
 
-def draw_landmarks(frame, eye_pts_l, eye_pts_r, mouth_pts, ear, mar):
+def draw_landmarks(frame, eye_pts_l, eye_pts_r, mouth_pts, ear, mar,
+                   ear_threshold=EAR_THRESHOLD):
     if not SHOW_LANDMARKS:
         return
-    eye_color   = RED if ear < EAR_THRESHOLD  else GREEN
+    eye_color   = RED if ear < ear_threshold  else GREEN
     mouth_color = RED if mar > MAR_THRESHOLD   else GREEN
 
     for pt in eye_pts_l + eye_pts_r:
@@ -54,6 +55,9 @@ def _bar(frame, x, y, w, h, value, max_val, color_ok, color_warn, color_danger, 
 
 def draw_ui(frame, ear, mar, yaw, pitch, perclos, state, alerts_fired, fps):
     h, w = frame.shape[:2]
+    # Per-driver eyes-closed cutoff (set during calibration); falls back
+    # to the fixed config value before calibration completes.
+    ear_thr = getattr(state, "ear_threshold", EAR_THRESHOLD)
 
     # ── Semi-transparent sidebar ──────────────────────────────────
     overlay = frame.copy()
@@ -84,7 +88,7 @@ def draw_ui(frame, ear, mar, yaw, pitch, perclos, state, alerts_fired, fps):
                     cv2.FONT_HERSHEY_SIMPLEX, 0.48, color, 1, cv2.LINE_AA)
         y += 18
 
-    metric_line("EAR:   ", f"{ear:.3f}", ear >= EAR_THRESHOLD)
+    metric_line("EAR:   ", f"{ear:.3f}", ear >= ear_thr)
     metric_line("MAR:   ", f"{mar:.3f}", mar <= MAR_THRESHOLD)
     metric_line("YAW:   ", f"{yaw:+.1f}deg", abs(yaw) <= HEAD_YAW_THRESHOLD)
     metric_line("PITCH: ", f"{pitch:+.1f}deg", abs(pitch) <= HEAD_PITCH_THRESHOLD)
@@ -96,7 +100,7 @@ def draw_ui(frame, ear, mar, yaw, pitch, perclos, state, alerts_fired, fps):
     # ── Progress bars ─────────────────────────────────────────────
     bar_w = w - x0 - 10
 
-    eye_elapsed   = state.get_elapsed("eyes",  ear < EAR_THRESHOLD)
+    eye_elapsed   = state.get_elapsed("eyes",  ear < ear_thr)
     mouth_elapsed = state.get_elapsed("mouth", mar > MAR_THRESHOLD)
     head_cond     = abs(yaw) > HEAD_YAW_THRESHOLD or abs(pitch) > HEAD_PITCH_THRESHOLD
     head_elapsed  = state.get_elapsed("head",  head_cond)
@@ -148,3 +152,49 @@ def draw_no_face(frame):
     panel_w = w - 260
     cv2.putText(frame, "No face detected", (10, h // 2),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, YELLOW, 2, cv2.LINE_AA)
+
+
+def draw_ir_badge(frame):
+    """Small corner badge shown while IR simulation is active."""
+    h, w = frame.shape[:2]
+    cv2.putText(frame, "IR SIM", (10, h - 12),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.55, GREEN, 2, cv2.LINE_AA)
+
+
+def draw_calibration(frame, remaining, duration, face_missing=False):
+    """
+    Centered overlay shown during the startup calibration window.
+    Tells the driver to hold a neutral gaze while the baseline is captured.
+    """
+    h, w = frame.shape[:2]
+    cx, cy = w // 2, h // 2
+
+    # Dim the whole frame so the message stands out
+    overlay = frame.copy()
+    cv2.rectangle(overlay, (0, 0), (w, h), BLACK, -1)
+    cv2.addWeighted(overlay, 0.45, frame, 0.55, 0, frame)
+
+    def centered(text, y, scale, color, thick):
+        (tw, _), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, scale, thick)
+        cv2.putText(frame, text, (cx - tw // 2, y),
+                    cv2.FONT_HERSHEY_SIMPLEX, scale, color, thick, cv2.LINE_AA)
+
+    centered("CALIBRATING", cy - 40, 1.1, YELLOW, 2)
+
+    if face_missing:
+        centered("Please face the camera", cy, 0.6, RED, 1)
+    else:
+        centered("Look straight ahead, eyes open", cy, 0.6, WHITE, 1)
+
+    # Progress bar
+    bar_w = int(w * 0.4)
+    bar_h = 14
+    bx = cx - bar_w // 2
+    by = cy + 25
+    pct = 0.0 if duration <= 0 else max(0.0, min(1.0, 1.0 - remaining / duration))
+    cv2.rectangle(frame, (bx, by), (bx + bar_w, by + bar_h), (60, 60, 60), -1)
+    if pct > 0:
+        cv2.rectangle(frame, (bx, by), (bx + int(bar_w * pct), by + bar_h), GREEN, -1)
+    cv2.rectangle(frame, (bx, by), (bx + bar_w, by + bar_h), GRAY, 1)
+
+    centered(f"{remaining:.1f}s", by + bar_h + 22, 0.6, WHITE, 1)

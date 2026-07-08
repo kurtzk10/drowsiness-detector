@@ -16,13 +16,16 @@ import time
 import sys
 import os
 
-from config import CAMERA_SOURCE, EAR_THRESHOLD, MAR_THRESHOLD, \
-    HEAD_YAW_THRESHOLD, HEAD_PITCH_THRESHOLD, SHOW_LANDMARKS
+from config import CAMERA_SOURCE, MAR_THRESHOLD, \
+    HEAD_YAW_THRESHOLD, HEAD_PITCH_THRESHOLD, SHOW_LANDMARKS, \
+    CALIBRATION_SECONDS, EAR_CALIBRATION, IR_MODE
 from metrics import (calculate_EAR, calculate_MAR, calculate_head_pose,
                      get_eye_points_for_drawing, get_mouth_points_for_drawing)
-from state import StateManager
+from state import StateManager, Calibrator
 from alert import trigger_alert
-from display import draw_landmarks, draw_ui, draw_alert_banner, draw_no_face
+from filters import apply_ir_filter
+from display import (draw_landmarks, draw_ui, draw_alert_banner, draw_no_face,
+                     draw_calibration, draw_ir_badge)
 
 from mediapipe.tasks.python import BaseOptions
 from mediapipe.tasks.python.vision import (
@@ -56,6 +59,7 @@ def main():
 
     # ── State ─────────────────────────────────────────────────────
     state = StateManager()
+    calibrator = Calibrator(CALIBRATION_SECONDS)
     alerts_fired = 0
 
     # Active banner display state
@@ -67,8 +71,27 @@ def main():
     fps_count = 0
     frame_count = 0
 
-    print("[INFO] System running. Press Q to quit.")
-    print("[INFO] Look at the camera to begin detection.")
+    ir_enabled = IR_MODE
+
+    print("[INFO] System running. Q=quit, C=recalibrate, I=toggle IR sim.")
+    print(f"[INFO] Calibrating for {CALIBRATION_SECONDS:.0f}s - "
+          "look straight ahead at the road.")
+    if ir_enabled:
+        print("[INFO] IR simulation ON (monochrome).")
+
+    def read_key():
+        """Poll the keyboard. Returns True if the user wants to quit."""
+        nonlocal ir_enabled
+        key = cv2.waitKey(1) & 0xFF
+        if key == ord('q'):
+            return True
+        if key == ord('c'):
+            calibrator.reset()
+            print("[INFO] Recalibrating — look straight ahead at the road.")
+        if key == ord('i'):
+            ir_enabled = not ir_enabled
+            print(f"[INFO] IR simulation {'ON' if ir_enabled else 'OFF'}.")
+        return False
 
     while True:
         ret, frame = cap.read()
@@ -80,11 +103,21 @@ def main():
         # Flip for mirror view (comment out for dashcam)
         frame = cv2.flip(frame, 1)
 
+        # IR simulation — applied before detection so MediaPipe runs on
+        # the same monochrome input a real IR camera would deliver.
+        if ir_enabled:
+            frame = apply_ir_filter(frame)
+
         h, w = frame.shape[:2]
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
         frame_count += 1
         results = face_landmarker.detect_for_video(mp_image, frame_count)
+
+        # Badge drawn on the display copy only (rgb above is already made,
+        # so this never contaminates the detection input).
+        if ir_enabled:
+            draw_ir_badge(frame)
 
         # ── FPS ───────────────────────────────────────────────────
         fps_count += 1
@@ -96,9 +129,13 @@ def main():
 
         # ── No face ───────────────────────────────────────────────
         if not results.face_landmarks:
-            draw_no_face(frame)
+            if not calibrator.done:
+                draw_calibration(frame, calibrator.remaining(),
+                                 calibrator.duration, face_missing=True)
+            else:
+                draw_no_face(frame)
             cv2.imshow("Drowsiness Detector — Q to quit", frame)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
+            if read_key():
                 break
             continue
 
@@ -114,10 +151,34 @@ def main():
         if SHOW_LANDMARKS:
             l_eye, r_eye = get_eye_points_for_drawing(face_lm, w, h)
             mouth_pts    = get_mouth_points_for_drawing(face_lm, w, h)
-            draw_landmarks(frame, l_eye, r_eye, mouth_pts, ear, mar)
+            draw_landmarks(frame, l_eye, r_eye, mouth_pts, ear, mar,
+                           state.ear_threshold)
+
+        # ── Calibration phase ─────────────────────────────────────
+        # Capture the driver's neutral head pose before detecting so
+        # "not looking" is measured as deviation from where they sit.
+        if not calibrator.done:
+            remaining = calibrator.add_sample(yaw, pitch, ear)
+            if not calibrator.done:
+                draw_calibration(frame, remaining, calibrator.duration)
+                cv2.imshow("Drowsiness Detector — Q to quit", frame)
+                if read_key():
+                    break
+                continue
+            print("[INFO] Calibration complete. Neutral pose captured: "
+                  f"yaw={calibrator.yaw_offset:+.1f}deg, "
+                  f"pitch={calibrator.pitch_offset:+.1f}deg")
+            if EAR_CALIBRATION:
+                state.set_ear_threshold(calibrator.ear_threshold)
+                print(f"[INFO] Eye baseline EAR={calibrator.ear_baseline:.3f} "
+                      f"-> eyes-closed threshold={calibrator.ear_threshold:.3f}")
+
+        # ── Apply calibration offsets (deviation from neutral) ────
+        yaw   -= calibrator.yaw_offset
+        pitch -= calibrator.pitch_offset
 
         # ── Check conditions ──────────────────────────────────────
-        eyes_closed  = ear < EAR_THRESHOLD
+        eyes_closed  = ear < state.ear_threshold
         mouth_open   = mar > MAR_THRESHOLD
         head_off     = (abs(yaw)   > HEAD_YAW_THRESHOLD or
                         abs(pitch) > HEAD_PITCH_THRESHOLD)
@@ -162,7 +223,7 @@ def main():
             active_banner = None
 
         cv2.imshow("Drowsiness Detector — Q to quit", frame)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
+        if read_key():
             break
 
     cap.release()
