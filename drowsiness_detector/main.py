@@ -16,6 +16,7 @@ from display import draw_landmarks, draw_ui, draw_alert_banner, draw_no_face
 from http_alerts import HttpAlertClient
 from calibration import Calibrator
 from discovery import PhoneDiscovery
+from streamer import Streamer
 
 from mediapipe.tasks.python import BaseOptions
 from mediapipe.tasks.python.vision import (
@@ -72,6 +73,8 @@ def main():
         on_phone_found=lambda ip, port: http_client.update_phone(ip, port)
     )
     discovery.start()
+    streamer = Streamer()
+    streamer.start()
     calibrator = Calibrator(
         duration=CALIBRATION_SECONDS,
         ear_mult=EAR_THRESHOLD_MULTIPLIER,
@@ -86,6 +89,11 @@ def main():
     yaw_th = HEAD_YAW_THRESHOLD
     pitch_th = HEAD_PITCH_THRESHOLD
 
+    baseline_yaw = 0.0
+    baseline_pitch = 0.0
+    yaw_offset = HEAD_YAW_THRESHOLD
+    pitch_offset = HEAD_PITCH_THRESHOLD
+
     alerts_fired = 0
     active_banner = None
     alert_active = False  # tracks whether phone alarm is currently showing
@@ -95,6 +103,8 @@ def main():
     fps_prev = time.time()
     fps_count = 0
     frame_count = 0
+
+    cal_phone_requested = False
 
     print("[INFO] System running. Press Q to quit, C to calibrate.")
     print("[INFO] Look at the camera to begin detection.")
@@ -107,6 +117,7 @@ def main():
             continue
 
         frame = cv2.flip(frame, 1)
+        raw_feed = frame.copy()
         h, w = frame.shape[:2]
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
@@ -120,6 +131,13 @@ def main():
             fps = fps_count / (now - fps_prev)
             fps_count = 0
             fps_prev = now
+
+        # ── Check for remote calibration trigger ─────────────────
+        if streamer.calibration_pending() and not calibrator.is_running() and not cal_phone_requested:
+            calibrator.start()
+            alert_active = False
+            cal_phone_requested = True
+            print("[CALIB] Remote calibration triggered by phone...")
 
         # ── Handle calibration sampling ───────────────────────────
         if calibrator.is_running():
@@ -135,12 +153,17 @@ def main():
             if result and result.is_valid():
                 ear_th = result.thresholds["ear"]
                 mar_th = result.thresholds["mar"]
-                yaw_th = result.thresholds["yaw"]
-                pitch_th = result.thresholds["pitch"]
+                baseline_yaw = result.baseline_yaw
+                baseline_pitch = result.baseline_pitch
+                yaw_offset = HEAD_YAW_THRESHOLD_OFFSET
+                pitch_offset = HEAD_PITCH_THRESHOLD_OFFSET
+                yaw_th = yaw_offset
+                pitch_th = pitch_offset
                 print(f"[CALIB] Baseline EAR={result.baseline_ear:.3f}, "
-                      f"MAR={result.baseline_mar:.3f}")
+                      f"MAR={result.baseline_mar:.3f}, "
+                      f"Yaw={baseline_yaw:+.1f}deg, Pitch={baseline_pitch:+.1f}deg")
                 print(f"[CALIB] Dynamic thresholds: EAR<{ear_th}, "
-                      f"MAR>{mar_th}, Yaw>{yaw_th}, Pitch>{pitch_th}")
+                      f"MAR>{mar_th}, Yaw offset ±{yaw_offset}deg, Pitch offset ±{pitch_offset}deg")
 
             # Draw calibration overlay
             text = calibrator.get_status_text()
@@ -161,15 +184,29 @@ def main():
                 cv2.rectangle(frame, (bx, by), (bx + bar_w, by + bar_h),
                               (255, 255, 255), 1)
 
+            _, jpeg = cv2.imencode(".jpg", raw_feed, [cv2.IMWRITE_JPEG_QUALITY, 55])
+            streamer.push_jpeg(jpeg.tobytes())
+
             cv2.imshow("Drowsiness Detector — Q to quit, C to calibrate", frame)
             key = cv2.waitKey(1) & 0xFF
             if key == ord('q'):
                 break
             continue
 
+        # ── Remote calibration done ───────────────────────────────
+        if cal_phone_requested and not calibrator.is_running():
+            cal_phone_requested = False
+            r = calibrator.get_result()
+            streamer.complete_calibration(
+                {"status": "ok", "thresholds": r.thresholds} if r and r.is_valid() else None
+            )
+            print("[CALIB] Remote calibration complete, thresholds sent to phone")
+
         # ── No face ───────────────────────────────────────────────
         if not results.face_landmarks:
             draw_no_face(frame)
+            _, jpeg = cv2.imencode(".jpg", raw_feed, [cv2.IMWRITE_JPEG_QUALITY, 55])
+            streamer.push_jpeg(jpeg.tobytes())
             cv2.imshow("Drowsiness Detector — Q to quit, C to calibrate", frame)
             key = cv2.waitKey(1) & 0xFF
             if key == ord('q'):
@@ -183,6 +220,8 @@ def main():
         face_lm = _pick_closest_face(results.face_landmarks, w, h)
         if face_lm is None:
             draw_no_face(frame)
+            _, jpeg = cv2.imencode(".jpg", raw_feed, [cv2.IMWRITE_JPEG_QUALITY, 55])
+            streamer.push_jpeg(jpeg.tobytes())
             cv2.imshow("Drowsiness Detector — Q to quit, C to calibrate", frame)
             key = cv2.waitKey(1) & 0xFF
             if key == ord('q'):
@@ -196,6 +235,8 @@ def main():
         ear = calculate_EAR(face_lm, w, h)
         mar = calculate_MAR(face_lm, w, h)
         yaw, pitch = calculate_head_pose(face_lm, w, h)
+        rel_yaw = yaw - baseline_yaw
+        rel_pitch = pitch - baseline_pitch
         perclos = state.update_perclos(ear)
 
         # ── Draw landmarks ────────────────────────────────────────
@@ -207,7 +248,7 @@ def main():
         # ── Check conditions ──────────────────────────────────────
         eyes_closed = ear < ear_th
         mouth_open = mar > mar_th
-        head_off = (abs(yaw) > yaw_th or abs(pitch) > pitch_th)
+        head_off = (abs(rel_yaw) > yaw_offset or abs(rel_pitch) > pitch_offset)
         perclos_high = state.is_drowsy_perclos(perclos)
 
         # ── Alert logic ───────────────────────────────────────────
@@ -240,18 +281,18 @@ def main():
             alerts_fired += 1
             alert_active = True
             active_banner = ("EYES ON THE ROAD!",
-                             f"Yaw:{yaw:+.0f}deg  Pitch:{pitch:+.0f}deg",
+                             f"Yaw:{rel_yaw:+.0f}deg  Pitch:{rel_pitch:+.0f}deg",
                              time.time() + 3.0)
 
         # ── Auto-clear ────────────────────────────────────────────
-        if alert_active and state.is_driver_alert(ear, mar, yaw, pitch):
+        if alert_active and state.is_driver_alert(ear, mar, rel_yaw, rel_pitch):
             clear_alert(http_client)
             alert_active = False
             active_banner = None
 
         # ── Draw UI ───────────────────────────────────────────────
-        draw_ui(frame, ear, mar, yaw, pitch, perclos, state, alerts_fired,
-                fps, ear_th, mar_th)
+        draw_ui(frame, ear, mar, rel_yaw, rel_pitch, perclos, state, alerts_fired,
+                fps, ear_th, mar_th, yaw_offset, pitch_offset)
 
         if active_banner and time.time() < active_banner[2]:
             draw_alert_banner(frame, active_banner[0], active_banner[1])
@@ -262,6 +303,9 @@ def main():
         cv2.putText(frame, "C: Calibrate", (10, h - 10),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.45, (200, 200, 200), 1,
                     cv2.LINE_AA)
+
+        _, jpeg = cv2.imencode(".jpg", raw_feed, [cv2.IMWRITE_JPEG_QUALITY, 55])
+        streamer.push_jpeg(jpeg.tobytes())
 
         cv2.imshow("Drowsiness Detector — Q to quit, C to calibrate", frame)
         key = cv2.waitKey(1) & 0xFF
@@ -276,6 +320,7 @@ def main():
     cv2.destroyAllWindows()
     face_landmarker.close()
     http_client.shutdown()
+    streamer.stop()
     discovery.stop()
     print("[INFO] System stopped.")
 

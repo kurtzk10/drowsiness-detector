@@ -15,7 +15,7 @@
         android:theme="@style/Theme.DrowsinessAlert">
 
         <activity
-            android:name=".MainActivity"
+            android:name=".CalibrationActivity"
             android:exported="true"
             android:showOnLockScreen="true"
             android:showWhenLocked="true"
@@ -25,6 +25,17 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:showOnLockScreen="true"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true" />
+
+        <activity
+            android:name=".SettingsActivity"
+            android:exported="false" />
 
         <service
             android:name=".AlertService"

@@ -15,7 +15,7 @@ EAR_ALERT_SECONDS = 2.0     # seconds eyes must stay closed to alert
 
 # --- PERCLOS ---
 # Percentage of frames where EAR < threshold over a rolling window
-PERCLOS_WINDOW_SECONDS = 60  # rolling window duration in seconds
+PERCLOS_WINDOW_SECONDS = 30  # rolling window duration in seconds
 PERCLOS_THRESHOLD = 0.80     # 80% of frames closed = drowsy
 
 # --- MAR (Mouth Aspect Ratio) ---

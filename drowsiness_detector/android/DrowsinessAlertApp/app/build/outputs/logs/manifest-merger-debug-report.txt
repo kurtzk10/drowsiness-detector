@@ -1,9 +1,9 @@
 -- Merging decision tree log ---
 manifest
-ADDED from C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\main\AndroidManifest.xml:2:1-35:12
-INJECTED from C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\main\AndroidManifest.xml:2:1-35:12
-INJECTED from C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\main\AndroidManifest.xml:2:1-35:12
-INJECTED from C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\main\AndroidManifest.xml:2:1-35:12
+ADDED from C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\main\AndroidManifest.xml:2:1-46:12
+INJECTED from C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\main\AndroidManifest.xml:2:1-46:12
+INJECTED from C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\main\AndroidManifest.xml:2:1-46:12
+INJECTED from C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\main\AndroidManifest.xml:2:1-46:12
 MERGED from [com.google.android.material:material:1.11.0] C:\Users\JUSTINELUISCALAGUAS\.gradle\caches\transforms-3\a7cedfdb9e653c6d62a381bd037ac6a3\transformed\material-1.11.0\AndroidManifest.xml:17:1-24:12
 MERGED from [androidx.constraintlayout:constraintlayout:2.1.4] C:\Users\JUSTINELUISCALAGUAS\.gradle\caches\transforms-3\ad7e33e9ead0d2401990009e51abf8c7\transformed\constraintlayout-2.1.4\AndroidManifest.xml:2:1-11:12
 MERGED from [androidx.appcompat:appcompat-resources:1.6.1] C:\Users\JUSTINELUISCALAGUAS\.gradle\caches\transforms-3\6313564f210d784586c430d1751ed5da\transformed\appcompat-resources-1.6.1\AndroidManifest.xml:17:1-22:12
@@ -75,8 +75,8 @@ ADDED from C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\and
 	android:name
 		ADDED from C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\main\AndroidManifest.xml:8:22-63
 application
-ADDED from C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\main\AndroidManifest.xml:10:5-34:19
-INJECTED from C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\main\AndroidManifest.xml:10:5-34:19
+ADDED from C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\main\AndroidManifest.xml:10:5-45:19
+INJECTED from C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\main\AndroidManifest.xml:10:5-45:19
 MERGED from [com.google.android.material:material:1.11.0] C:\Users\JUSTINELUISCALAGUAS\.gradle\caches\transforms-3\a7cedfdb9e653c6d62a381bd037ac6a3\transformed\material-1.11.0\AndroidManifest.xml:22:5-20
 MERGED from [com.google.android.material:material:1.11.0] C:\Users\JUSTINELUISCALAGUAS\.gradle\caches\transforms-3\a7cedfdb9e653c6d62a381bd037ac6a3\transformed\material-1.11.0\AndroidManifest.xml:22:5-20
 MERGED from [androidx.constraintlayout:constraintlayout:2.1.4] C:\Users\JUSTINELUISCALAGUAS\.gradle\caches\transforms-3\ad7e33e9ead0d2401990009e51abf8c7\transformed\constraintlayout-2.1.4\AndroidManifest.xml:9:5-20
@@ -107,7 +107,7 @@ MERGED from [androidx.startup:startup-runtime:1.1.1] C:\Users\JUSTINELUISCALAGUA
 		ADDED from C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\main\AndroidManifest.xml:15:9-53
 	android:usesCleartextTraffic
 		ADDED from C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\main\AndroidManifest.xml:11:9-44
-activity#com.drowsiness.alert.MainActivity
+activity#com.drowsiness.alert.CalibrationActivity
 ADDED from C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\main\AndroidManifest.xml:17:9-27:20
 	android:turnScreenOn
 		ADDED from C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\main\AndroidManifest.xml:22:13-40
@@ -118,7 +118,7 @@ ADDED from C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\and
 	android:showOnLockScreen
 		ADDED from C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\main\AndroidManifest.xml:20:13-44
 	android:name
-		ADDED from C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\main\AndroidManifest.xml:18:13-41
+		ADDED from C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\main\AndroidManifest.xml:18:13-48
 intent-filter#action:name:android.intent.action.MAIN+category:name:android.intent.category.LAUNCHER
 ADDED from C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\main\AndroidManifest.xml:23:13-26:29
 action#android.intent.action.MAIN
@@ -129,14 +129,32 @@ category#android.intent.category.LAUNCHER
 ADDED from C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\main\AndroidManifest.xml:25:17-77
 	android:name
 		ADDED from C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\main\AndroidManifest.xml:25:27-74
-service#com.drowsiness.alert.AlertService
-ADDED from C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\main\AndroidManifest.xml:29:9-32:56
+activity#com.drowsiness.alert.MainActivity
+ADDED from C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\main\AndroidManifest.xml:29:9-34:43
+	android:turnScreenOn
+		ADDED from C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\main\AndroidManifest.xml:34:13-40
+	android:showWhenLocked
+		ADDED from C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\main\AndroidManifest.xml:33:13-42
 	android:exported
-		ADDED from C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\main\AndroidManifest.xml:31:13-37
-	android:foregroundServiceType
-		ADDED from C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\main\AndroidManifest.xml:32:13-53
+		ADDED from C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\main\AndroidManifest.xml:31:13-36
+	android:showOnLockScreen
+		ADDED from C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\main\AndroidManifest.xml:32:13-44
 	android:name
 		ADDED from C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\main\AndroidManifest.xml:30:13-41
+activity#com.drowsiness.alert.SettingsActivity
+ADDED from C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\main\AndroidManifest.xml:36:9-38:40
+	android:exported
+		ADDED from C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\main\AndroidManifest.xml:38:13-37
+	android:name
+		ADDED from C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\main\AndroidManifest.xml:37:13-45
+service#com.drowsiness.alert.AlertService
+ADDED from C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\main\AndroidManifest.xml:40:9-43:56
+	android:exported
+		ADDED from C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\main\AndroidManifest.xml:42:13-37
+	android:foregroundServiceType
+		ADDED from C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\main\AndroidManifest.xml:43:13-53
+	android:name
+		ADDED from C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\main\AndroidManifest.xml:41:13-41
 uses-sdk
 INJECTED from C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\main\AndroidManifest.xml reason: use-sdk injection requested
 INJECTED from C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\main\AndroidManifest.xml

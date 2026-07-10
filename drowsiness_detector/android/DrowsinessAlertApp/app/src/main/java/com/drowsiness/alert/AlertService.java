@@ -21,6 +21,7 @@ public class AlertService extends Service implements NanoHTTPDServer.AlertCallba
     private NanoHTTPDServer server;
     private DiscoveryBroadcaster broadcaster;
     private MainActivity boundActivity;
+    private DiscoveryBroadcaster.PcDiscoveredListener pcListener;
 
     // Binder for activity binding
     public class LocalBinder extends android.os.Binder {
@@ -53,6 +54,11 @@ public class AlertService extends Service implements NanoHTTPDServer.AlertCallba
         }
         if (broadcaster == null) {
             broadcaster = new DiscoveryBroadcaster(5000);
+            broadcaster.setPcDiscoveredListener(ip -> {
+                if (pcListener != null) {
+                    pcListener.onPcDiscovered(ip);
+                }
+            });
             broadcaster.start();
         }
         return START_STICKY;
@@ -78,6 +84,14 @@ public class AlertService extends Service implements NanoHTTPDServer.AlertCallba
 
     public void setBoundActivity(MainActivity activity) {
         this.boundActivity = activity;
+    }
+
+    public void setPcDiscoveredListener(DiscoveryBroadcaster.PcDiscoveredListener listener) {
+        this.pcListener = listener;
+    }
+
+    public String getPcIp() {
+        return broadcaster != null ? broadcaster.getPcIp() : null;
     }
 
     // ── Alert callbacks ──────────────────────────────────────────

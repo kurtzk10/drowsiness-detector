@@ -58,15 +58,15 @@ def _bar(frame, x, y, w, h, value, max_val, color_ok, color_warn, color_danger, 
 
 
 def draw_ui(frame, ear, mar, yaw, pitch, perclos, state, alerts_fired, fps,
-            ear_th=None, mar_th=None, yaw_th=None, pitch_th=None):
+            ear_th=None, mar_th=None, yaw_offset=None, pitch_offset=None):
     if ear_th is None:
         ear_th = EAR_THRESHOLD
     if mar_th is None:
         mar_th = MAR_THRESHOLD
-    if yaw_th is None:
-        yaw_th = HEAD_YAW_THRESHOLD
-    if pitch_th is None:
-        pitch_th = HEAD_PITCH_THRESHOLD
+    if yaw_offset is None:
+        yaw_offset = HEAD_YAW_THRESHOLD
+    if pitch_offset is None:
+        pitch_offset = HEAD_PITCH_THRESHOLD
 
     h, w = frame.shape[:2]
 
@@ -101,8 +101,8 @@ def draw_ui(frame, ear, mar, yaw, pitch, perclos, state, alerts_fired, fps,
 
     metric_line("EAR:   ", f"{ear:.3f}", ear >= ear_th)
     metric_line("MAR:   ", f"{mar:.3f}", mar <= mar_th)
-    metric_line("YAW:   ", f"{yaw:+.1f}deg", abs(yaw) <= yaw_th)
-    metric_line("PITCH: ", f"{pitch:+.1f}deg", abs(pitch) <= pitch_th)
+    metric_line("YAW:   ", f"{yaw:+.1f}deg", abs(yaw) <= yaw_offset)
+    metric_line("PITCH: ", f"{pitch:+.1f}deg", abs(pitch) <= pitch_offset)
     metric_line("PERCLOS:", f"{perclos*100:.1f}%", perclos < 0.80)
     y += 4
     cv2.line(frame, (x0, y), (w - 10, y), GRAY, 1)
@@ -113,7 +113,7 @@ def draw_ui(frame, ear, mar, yaw, pitch, perclos, state, alerts_fired, fps,
 
     eye_elapsed   = state.get_elapsed("eyes",  ear < ear_th)
     mouth_elapsed = state.get_elapsed("mouth", mar > mar_th)
-    head_cond     = abs(yaw) > yaw_th or abs(pitch) > pitch_th
+    head_cond     = abs(yaw) > yaw_offset or abs(pitch) > pitch_offset
     head_elapsed  = state.get_elapsed("head",  head_cond)
 
     _bar(frame, x0, y, bar_w, 10, eye_elapsed,   EAR_ALERT_SECONDS,

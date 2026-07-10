@@ -12,6 +12,7 @@ import android.media.MediaPlayer;
 import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.os.IBinder;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
@@ -19,6 +20,7 @@ import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.WindowManager;
+import android.widget.Button;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -46,6 +48,7 @@ public class MainActivity extends AppCompatActivity {
     // Current alert state
     private String currentAlertType = null;
     private long currentAlertStart = 0;
+    private boolean alarmDismissed = false;
 
     private final ServiceConnection connection = new ServiceConnection() {
         @Override
@@ -102,6 +105,24 @@ public class MainActivity extends AppCompatActivity {
         Intent intent = new Intent(this, AlertService.class);
         startForegroundService(intent);
         bindService(intent, connection, Context.BIND_AUTO_CREATE);
+
+        Button recalibrateButton = findViewById(R.id.recalibrateButton);
+        recalibrateButton.setOnClickListener(v -> {
+            stopAlertSound();
+            if (vibrator != null) {
+                vibrator.cancel();
+            }
+            Intent calIntent = new Intent(MainActivity.this, CalibrationActivity.class);
+            calIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(calIntent);
+            finish();
+        });
+
+        Button settingsButton = findViewById(R.id.settingsButton);
+        settingsButton.setOnClickListener(v -> {
+            Intent settingsIntent = new Intent(MainActivity.this, SettingsActivity.class);
+            startActivity(settingsIntent);
+        });
     }
 
     @Override
@@ -140,35 +161,39 @@ public class MainActivity extends AppCompatActivity {
     // ── Called from AlertService ─────────────────────────────────
 
     public void showAlert(String type, long timestamp) {
-        // If same alert type is already showing, skip (avoid duplicates)
-        if (type.equals(currentAlertType)) return;
+        boolean isNewType = !type.equals(currentAlertType);
 
-        // End previous event if any
-        if (currentAlertType != null && !events.isEmpty()) {
-            Event last = events.get(events.size() - 1);
-            if (last.getType().equals(currentAlertType) && last.getEndTimestamp() == 0) {
-                last.setEndTimestamp(timestamp);
+        if (!isNewType && alarmDismissed) return;
+
+        if (isNewType) {
+            alarmDismissed = false;
+
+            if (currentAlertType != null && !events.isEmpty()) {
+                Event last = events.get(events.size() - 1);
+                if (last.getType().equals(currentAlertType) && last.getEndTimestamp() == 0) {
+                    last.setEndTimestamp(timestamp);
+                    eventAdapter.notifyItemChanged(events.size() - 1);
+                }
             }
+
+            currentAlertType = type;
+            currentAlertStart = timestamp;
+
+            Event event = new Event(type, timestamp);
+            events.add(event);
+            if (events.size() > 100) {
+                events.remove(0);
+            }
+            eventAdapter.notifyItemInserted(events.size() - 1);
+            eventLog.smoothScrollToPosition(events.size() - 1);
+            updateCounts();
         }
 
-        currentAlertType = type;
-        currentAlertStart = timestamp;
-
-        // Add to event log
-        Event event = new Event(type, timestamp);
-        events.add(event);
-        if (events.size() > 100) {
-            events.remove(0);
-        }
-        eventAdapter.notifyItemInserted(events.size() - 1);
-        eventLog.smoothScrollToPosition(events.size() - 1);
-        updateCounts();
-
-        // Update UI
         String title;
         int bgColor;
         switch (type) {
             case Event.TYPE_DROWSY:
+            case "perclos":
                 title = getString(R.string.alarm_drowsy);
                 bgColor = getColor(R.color.drowsy_bg);
                 break;
@@ -191,15 +216,17 @@ public class MainActivity extends AppCompatActivity {
         alertTimestamp.setText(sdf.format(new java.util.Date(timestamp)));
         alertDuration.setText("");
 
-        // Sound + vibrate
-        playAlertSound();
-        vibrate();
+        if (!alarmDismissed) {
+            playAlertSound(type);
+            vibrate(type);
+        }
     }
 
     public void clearAlert(long timestamp) {
         if (currentAlertType == null) return;
 
-        // End current event
+        alarmDismissed = false;
+
         if (!events.isEmpty()) {
             Event last = events.get(events.size() - 1);
             if (last.getType().equals(currentAlertType) && last.getEndTimestamp() == 0) {
@@ -211,7 +238,6 @@ public class MainActivity extends AppCompatActivity {
         currentAlertType = null;
         currentAlertStart = 0;
 
-        // Restore normal UI
         alertContainer.setBackgroundColor(getColor(R.color.normal_bg));
         alertTitle.setText(getString(R.string.no_alarm));
         alertTimestamp.setText("");
@@ -241,7 +267,8 @@ public class MainActivity extends AppCompatActivity {
         int d = 0, y = 0, n = 0;
         for (Event e : events) {
             switch (e.getType()) {
-                case Event.TYPE_DROWSY: d++; break;
+                case Event.TYPE_DROWSY:
+                case "perclos": d++; break;
                 case Event.TYPE_YAWNING: y++; break;
                 case Event.TYPE_NOT_LOOKING: n++; break;
             }
@@ -251,13 +278,16 @@ public class MainActivity extends AppCompatActivity {
         countNotLooking.setText("LOOK: " + n);
     }
 
-    private void playAlertSound() {
+    private void playAlertSound(String type) {
         try {
             stopAlertSound();
-            Uri alertUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
+            String uriStr = SettingsActivity.getRingtoneUri(this, type);
+            Uri alertUri = Uri.parse(uriStr);
             if (alertUri == null) {
-                alertUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+                alertUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
             }
+            int vol = SettingsActivity.getVolumePercent(this, type);
+            float volFloat = Math.max(0.5f, vol / 100f);
             mediaPlayer = new MediaPlayer();
             mediaPlayer.setAudioAttributes(new AudioAttributes.Builder()
                     .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
@@ -265,6 +295,7 @@ public class MainActivity extends AppCompatActivity {
                     .build());
             mediaPlayer.setDataSource(this, alertUri);
             mediaPlayer.setLooping(true);
+            mediaPlayer.setVolume(volFloat, volFloat);
             mediaPlayer.prepare();
             mediaPlayer.start();
         } catch (Exception e) {
@@ -281,7 +312,8 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void vibrate() {
+    private void vibrate(String type) {
+        if (!SettingsActivity.isVibrationEnabled(this, type)) return;
         if (vibrator != null && vibrator.hasVibrator()) {
             long[] pattern = {0, 400, 200, 400};
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
@@ -297,6 +329,10 @@ public class MainActivity extends AppCompatActivity {
         if (vibrator != null) {
             vibrator.cancel();
         }
-        clearAlert(System.currentTimeMillis());
+        alarmDismissed = true;
+        alertContainer.setBackgroundColor(getColor(R.color.normal_bg));
+        alertTitle.setText("DISMISSED");
+        alertTimestamp.setText("");
+        alertDuration.setText("");
     }
 }
