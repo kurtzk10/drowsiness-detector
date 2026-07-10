@@ -116,9 +116,41 @@
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/eventLog"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
             android:clipToPadding="false"
             android:paddingBottom="8dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/recalibrateButton"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_marginRight="2dp"
+                android:text="RECALIBRATE"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:textColor="#ffffff"
+                android:background="#445566" />
+
+            <Button
+                android:id="@+id/settingsButton"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_marginLeft="2dp"
+                android:text="SETTINGS"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:textColor="#ffffff"
+                android:background="#334455" />
+
+        </LinearLayout>
 
     </LinearLayout>
 

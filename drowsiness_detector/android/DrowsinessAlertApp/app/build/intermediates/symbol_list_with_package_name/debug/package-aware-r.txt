@@ -3177,6 +3177,8 @@ id bounceEnd
 id bounceStart
 id buttonPanel
 id cache_measures
+id calibrateButton
+id calibrationOverlay
 id callMeasure
 id cancel_button
 id carryVelocity
@@ -3237,6 +3239,7 @@ id disableIntraAutoTransition
 id disablePostScroll
 id disableScroll
 id disjoint
+id doneButton
 id dragAnticlockwise
 id dragClockwise
 id dragDown
@@ -3442,6 +3445,7 @@ id progress_circular
 id progress_horizontal
 id radio
 id ratio
+id recalibrateButton
 id rectangles
 id report_drawn
 id reverseSawtooth
@@ -3449,6 +3453,12 @@ id right
 id rightToLeft
 id right_icon
 id right_side
+id ringtoneButton_drowsy
+id ringtoneButton_notlooking
+id ringtoneButton_yawning
+id ringtoneDisplay_drowsy
+id ringtoneDisplay_notlooking
+id ringtoneDisplay_yawning
 id rounded
 id row_index_key
 id save_non_transition_alpha
@@ -3474,6 +3484,7 @@ id search_voice_btn
 id select_dialog_listview
 id selected
 id selection_type
+id settingsButton
 id sharedValueSet
 id sharedValueUnset
 id shortcut
@@ -3507,6 +3518,7 @@ id startToEnd
 id startVertical
 id staticLayout
 id staticPostLayout
+id statusText
 id stop
 id stretch
 id submenuarrow
@@ -3564,6 +3576,10 @@ id unlabeled
 id up
 id useLogo
 id vertical_only
+id vibrationSwitch_drowsy
+id vibrationSwitch_notlooking
+id vibrationSwitch_yawning
+id videoFeed
 id view_offset_helper
 id view_transition
 id view_tree_lifecycle_owner
@@ -3572,6 +3588,12 @@ id view_tree_saved_state_registry_owner
 id view_tree_view_model_store_owner
 id visible
 id visible_removing_fragment_view_tag
+id volumeLabel_drowsy
+id volumeLabel_notlooking
+id volumeLabel_yawning
+id volumeSeekBar_drowsy
+id volumeSeekBar_notlooking
+id volumeSeekBar_yawning
 id west
 id withText
 id with_icon
@@ -3695,7 +3717,9 @@ layout abc_search_dropdown_item_icons_2line
 layout abc_search_view
 layout abc_select_dialog_material
 layout abc_tooltip
+layout activity_calibration
 layout activity_main
+layout activity_settings
 layout custom_dialog
 layout design_bottom_navigation_item
 layout design_bottom_sheet_dialog
@@ -3938,6 +3962,7 @@ string searchview_clear_text_content_description
 string searchview_navigation_content_description
 string service_channel
 string service_running
+string settings
 string side_sheet_accessibility_pane_title
 string side_sheet_behavior
 string status_bar_notification_info_overflow

@@ -7,4 +7,5 @@
     <string name="alarm_drowsy">⚠ WAKE UP!</string>
     <string name="alarm_yawning">YAWNING DETECTED</string>
     <string name="alarm_not_looking">EYES ON THE ROAD!</string>
+    <string name="settings">Settings</string>
 </resources>
