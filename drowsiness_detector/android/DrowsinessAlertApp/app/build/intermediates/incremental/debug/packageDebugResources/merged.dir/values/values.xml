@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="alert_text">#ffffff</color>
+    <color name="divider">#3a3a5e</color>
+    <color name="drowsy_bg">#cc0000</color>
+    <color name="header_bg">#0f0f23</color>
+    <color name="log_item_bg">#2a2a3e</color>
+    <color name="normal_bg">#1a1a2e</color>
+    <color name="not_looking_bg">#cc5500</color>
+    <color name="yawning_bg">#ccaa00</color>
+    <string name="alarm_drowsy">⚠ WAKE UP!</string>
+    <string name="alarm_not_looking">EYES ON THE ROAD!</string>
+    <string name="alarm_yawning">YAWNING DETECTED</string>
+    <string name="app_name">Drowsiness Alert</string>
+    <string name="no_alarm">No alarm</string>
+    <string name="service_channel">Alert Service</string>
+    <string name="service_running">Alert server is running</string>
+    <style name="Theme.DrowsinessAlert" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="android:statusBarColor">@color/normal_bg</item>
+        <item name="android:navigationBarColor">@color/normal_bg</item>
+    </style>
+</resources>
