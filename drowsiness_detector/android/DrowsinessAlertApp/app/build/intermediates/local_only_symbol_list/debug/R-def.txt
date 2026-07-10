@@ -1,0 +1,33 @@
+R_DEF: Internal format may change without notice
+local
+color alert_text
+color divider
+color drowsy_bg
+color header_bg
+color log_item_bg
+color normal_bg
+color not_looking_bg
+color yawning_bg
+drawable circle_dot
+id alertContainer
+id alertDuration
+id alertTimestamp
+id alertTitle
+id countDrowsy
+id countNotLooking
+id countYawning
+id eventDot
+id eventDuration
+id eventHeader
+id eventLog
+id eventTimestamp
+layout activity_main
+layout item_event
+string alarm_drowsy
+string alarm_not_looking
+string alarm_yawning
+string app_name
+string no_alarm
+string service_channel
+string service_running
+style Theme.DrowsinessAlert
