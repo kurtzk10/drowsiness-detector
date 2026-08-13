@@ -47,7 +47,7 @@ drowsiness_detector/
 ```
 
 ## Next Steps (after webcam works)
-1. Switch CAMERA_SOURCE to your IR camera stream URL
-2. Deploy to Raspberry Pi (same code, same install command)
+1. Switch CAMERA_SOURCE to your camera stream URL
+2. Deploy to your laptop (same code, same install command)
 3. Add Flask HTTP server to send alerts to Android phone
 4. Build Android app (Java) to receive alerts and play alarm
