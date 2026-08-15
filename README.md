@@ -51,3 +51,4 @@ drowsiness_detector/
 2. Deploy to your laptop (same code, same install command)
 3. Add Flask HTTP server to send alerts to Android phone
 4. Build Android app (Java) to receive alerts and play alarm
+
