@@ -131,3 +131,35 @@ def get_eye_points_for_drawing(face_landmarks, img_w, img_h):
 
 def get_mouth_points_for_drawing(face_landmarks, img_w, img_h):
     return get_landmarks_array(face_landmarks, MOUTH, img_w, img_h)
+
+
+def extract_eye_crop(frame, face_landmarks,
+                     landmark_indices, img_w, img_h,
+                     margin=0.3):
+    pts = get_landmarks_array(face_landmarks,
+                              landmark_indices,
+                              img_w, img_h)
+    if not pts:
+        return None
+
+    xs = [p[0] for p in pts]
+    ys = [p[1] for p in pts]
+    x1, x2 = min(xs), max(xs)
+    y1, y2 = min(ys), max(ys)
+
+    w = x2 - x1
+    h = y2 - y1
+
+    x1 = max(0, int(x1 - w * margin))
+    y1 = max(0, int(y1 - h * margin))
+    x2 = min(img_w, int(x2 + w * margin))
+    y2 = min(img_h, int(y2 + h * margin))
+
+    if x2 <= x1 or y2 <= y1:
+        return None
+
+    crop = frame[y1:y2, x1:x2]
+    gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY) \
+           if len(crop.shape) == 3 else crop
+    resized = cv2.resize(gray, (64, 32))
+    return resized

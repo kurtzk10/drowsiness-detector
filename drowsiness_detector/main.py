@@ -7,9 +7,11 @@ import os
 from config import CAMERA_SOURCE, EAR_THRESHOLD, MAR_THRESHOLD, \
     HEAD_YAW_THRESHOLD, HEAD_PITCH_THRESHOLD, SHOW_LANDMARKS, \
     CALIBRATION_SECONDS, EAR_THRESHOLD_MULTIPLIER, MAR_THRESHOLD_MULTIPLIER, \
-    HEAD_YAW_THRESHOLD_OFFSET, HEAD_PITCH_THRESHOLD_OFFSET
+    HEAD_YAW_THRESHOLD_OFFSET, HEAD_PITCH_THRESHOLD_OFFSET, \
+    CNN_ENABLED, CNN_MODEL_PATH, CNN_CONFIDENCE_THRESHOLD
 from metrics import (calculate_EAR, calculate_MAR, calculate_head_pose,
-                     get_eye_points_for_drawing, get_mouth_points_for_drawing)
+                     get_eye_points_for_drawing, get_mouth_points_for_drawing,
+                     LEFT_EYE, RIGHT_EYE, extract_eye_crop)
 from state import StateManager
 from alert import trigger_alert, clear_alert
 from display import draw_landmarks, draw_ui, draw_alert_banner, draw_no_face
@@ -22,6 +24,12 @@ from mediapipe.tasks.python import BaseOptions
 from mediapipe.tasks.python.vision import (
     FaceLandmarker, FaceLandmarkerOptions, RunningMode
 )
+
+_parent = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _parent not in sys.path:
+    sys.path.insert(0, _parent)
+
+from inference.eye_classifier import EyeClassifier
 
 
 def _get_face_bbox(face_lm, w, h):
@@ -82,6 +90,8 @@ def main():
         yaw_offset=HEAD_YAW_THRESHOLD_OFFSET,
         pitch_offset=HEAD_PITCH_THRESHOLD_OFFSET,
     )
+
+    eye_classifier = EyeClassifier(CNN_MODEL_PATH)
 
     # Dynamic thresholds (start with config defaults, updated after calibration)
     ear_th = EAR_THRESHOLD
@@ -247,6 +257,16 @@ def main():
 
         # ── Check conditions ──────────────────────────────────────
         eyes_closed = ear < ear_th
+
+        if eyes_closed and CNN_ENABLED \
+                and eye_classifier.is_available():
+            left_crop  = extract_eye_crop(
+                frame, face_lm, LEFT_EYE, w, h)
+            right_crop = extract_eye_crop(
+                frame, face_lm, RIGHT_EYE, w, h)
+            prob = eye_classifier.predict(left_crop, right_crop)
+            if prob is not None:
+                eyes_closed = prob >= CNN_CONFIDENCE_THRESHOLD
         mouth_open = mar > mar_th
         head_off = (abs(rel_yaw) > yaw_offset or abs(rel_pitch) > pitch_offset)
         perclos_high = state.is_drowsy_perclos(perclos)

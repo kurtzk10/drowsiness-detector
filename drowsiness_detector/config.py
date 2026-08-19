@@ -45,3 +45,12 @@ RECOVERY_SECONDS = 3.0
 # --- Display ---
 SHOW_LANDMARKS = True         # draw eye/mouth landmark dots
 SHOW_FPS = True               # show FPS counter on screen
+
+# ── Hybrid CNN Eye Classifier ──────────────────
+CNN_ENABLED = True
+import os
+CNN_MODEL_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "models", "eye_state.tflite"
+)
+CNN_CONFIDENCE_THRESHOLD = 0.75
