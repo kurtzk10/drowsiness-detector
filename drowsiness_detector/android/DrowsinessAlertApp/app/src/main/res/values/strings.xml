@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Drowsiness Alert</string>
+    <string name="service_channel">Alert Service</string>
+    <string name="service_running">Alert server is running</string>
+    <string name="no_alarm">No alarm</string>
+    <string name="alarm_drowsy">⚠ WAKE UP!</string>
+    <string name="alarm_yawning">YAWNING DETECTED</string>
+    <string name="alarm_not_looking">EYES ON THE ROAD!</string>
+    <string name="settings">Settings</string>
+</resources>

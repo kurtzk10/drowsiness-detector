@@ -1,0 +1,26 @@
+[
+    {
+        "merged": "C:\\Users\\JUSTINELUISCALAGUAS\\.gradle\\daemon\\8.5\\com.drowsiness.alert.app-merged_res-32:\\layout_item_event.xml.flat",
+        "source": "C:\\Users\\JUSTINELUISCALAGUAS\\.gradle\\daemon\\8.5\\com.drowsiness.alert.app-main-34:\\layout\\item_event.xml"
+    },
+    {
+        "merged": "C:\\Users\\JUSTINELUISCALAGUAS\\.gradle\\daemon\\8.5\\com.drowsiness.alert.app-merged_res-32:\\layout_activity_settings.xml.flat",
+        "source": "C:\\Users\\JUSTINELUISCALAGUAS\\.gradle\\daemon\\8.5\\com.drowsiness.alert.app-main-34:\\layout\\activity_settings.xml"
+    },
+    {
+        "merged": "C:\\Users\\JUSTINELUISCALAGUAS\\.gradle\\daemon\\8.5\\com.drowsiness.alert.app-merged_res-32:\\drawable_circle_dot.xml.flat",
+        "source": "C:\\Users\\JUSTINELUISCALAGUAS\\.gradle\\daemon\\8.5\\com.drowsiness.alert.app-main-34:\\drawable\\circle_dot.xml"
+    },
+    {
+        "merged": "C:\\Users\\JUSTINELUISCALAGUAS\\.gradle\\daemon\\8.5\\com.drowsiness.alert.app-merged_res-32:\\layout_activity_main.xml.flat",
+        "source": "C:\\Users\\JUSTINELUISCALAGUAS\\.gradle\\daemon\\8.5\\com.drowsiness.alert.app-main-34:\\layout\\activity_main.xml"
+    },
+    {
+        "merged": "com.drowsiness.alert.app-merged_res-32:/layout_activity_settings.xml.flat",
+        "source": "com.drowsiness.alert.app-main-34:/layout/activity_settings.xml"
+    },
+    {
+        "merged": "C:\\Users\\JUSTINELUISCALAGUAS\\.gradle\\daemon\\8.5\\com.drowsiness.alert.app-merged_res-32:\\layout_activity_calibration.xml.flat",
+        "source": "C:\\Users\\JUSTINELUISCALAGUAS\\.gradle\\daemon\\8.5\\com.drowsiness.alert.app-main-34:\\layout\\activity_calibration.xml"
+    }
+]
