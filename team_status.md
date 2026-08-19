@@ -58,6 +58,9 @@ all on the build branch — the model file was present but nothing loaded it.
 - [x] **Model loaded and running in main.py** (genuinely, as of 19 Aug)
 - [x] **Configurable EAR/CNN fusion** — `CNN_FUSION_MODE`
 - [x] Whole training pipeline committed to git
+- [x] **MAR yawn threshold fixed** — calibration was overwriting 0.60 with
+      ~0.06, so a slight lip parting fired the yawn alert. Now additive and
+      clamped to `[0.50, 0.65]`.
 
 ### Verified against the training code (19 Aug)
 These were assumptions before. They are now checked:
@@ -133,16 +136,52 @@ closed, and able only to cancel) is available as `"and"`. With CLOSED
 recall at ~72–73%, veto-only can only *lower* sensitivity versus EAR alone.
 **The whole team should agree, and the choice must be stated in the paper.**
 
-**3. Fix the PERCLOS alert spam (open bug).**
-`main.py` fires `perclos` on *every frame* while PERCLOS is high — that
-branch never sets a cooldown, unlike the others:
+**3. Fix the four alert-path bugs below.**
+All four are confirmed by test, all four affect what participant data
+means, and none of them is visible from just watching the screen.
+
+**3a. PERCLOS alert spam.** `main.py` fires `perclos` on *every frame*
+while PERCLOS is high — that branch never sets a cooldown, unlike the
+others:
 ```python
 elif perclos_high and not state.in_cooldown("eyes"):
     trigger_alert("perclos", http_client)   # no cooldown set for "perclos"
 ```
-A stubbed run produced 18 alerts in 40 frames. At 30 FPS that is roughly
-30 phone alerts a second.
-**This will ruin a participant session — fix before testing.**
+Measured: 200 alerts in 200 frames — about **30 phone alerts per second**.
+
+**3b. Auto-clear ignores calibration.** `state.is_driver_alert()` compares
+against the static config values, not the calibrated ones the alerts
+actually use:
+```python
+all_normal = (ear >= EAR_THRESHOLD and mar <= MAR_THRESHOLD and ...)
+```
+A driver with baseline EAR 0.22 calibrates to `ear_th = 0.187`, but the
+alarm only clears at `ear >= 0.25` — a value their open eye never reaches.
+**The phone alarm can never auto-clear for that driver.** Small-eyed
+participants are exactly who calibration exists for. Head pose has the
+same split: alerts use `yaw_offset` (25°), recovery uses
+`HEAD_YAW_THRESHOLD` (30°).
+
+**3c. PERCLOS threshold is effectively dead.** Window 30s, threshold 0.80
+means eyes must be shut for **24 of the last 30 seconds** — while the
+plain eyes-closed alert already fires at 2s. PERCLOS can only ever fire
+12x later than the alert that already covers it, so it contributes
+nothing. Drowsiness literature normally puts the PERCLOS drowsiness
+threshold near **0.15**, not 0.80. Decide whether 0.80 is intended; if it
+stays, the paper should not claim PERCLOS as a working detector.
+
+**3d. Phone alert failures are completely silent.** There is no local
+audio any more — `pygame` is gone with the old app. If discovery fails or
+the phone drops off the hotspot, `HttpAlertClient` keeps POSTing to
+`127.0.0.1` and swallows every error:
+```python
+except requests.exceptions.ConnectionError:
+    pass          # no log, no retry, no fallback
+```
+The laptop still draws its banner, so the session *looks* fine while the
+driver is being alerted by nothing. **Every such alert silently becomes a
+false negative in your results.** At minimum log the failure and show
+phone-connected status on screen.
 
 **4. Fix remaining paper issues**
 ```
@@ -263,12 +302,22 @@ Plagiarism check - Editor review - Adviser approval - Submit
 
 ## Known Open Issues
 
-| # | Issue | Impact |
-|---|---|---|
-| 1 | PERCLOS alert has no cooldown — fires every frame | Alert spam; blocks participant testing |
-| 2 | Never run against a live camera since consolidation | Unknown |
-| 3 | Fusion mode not yet agreed by the team | Changes what the results mean |
-| 4 | `models/old/` kept beside the current model | Make sure the paper cites the right one |
+| # | Issue | Impact | Status |
+|---|---|---|---|
+| 1 | PERCLOS alert has no cooldown — ~30 alerts/sec | Alert spam; blocks testing | open |
+| 2 | Auto-clear uses static thresholds, not calibrated | Alarm can never clear for small-eyed drivers | open |
+| 3 | PERCLOS threshold 0.80 needs 24s of 30s closed | Metric contributes nothing | open, decide |
+| 4 | Phone-alert failures silent — no audio, no log | Alerts vanish; become false negatives | open |
+| 5 | Never run against a live camera since consolidation | Unknown | open |
+| 6 | Fusion mode not yet agreed by the team | Changes what the results mean | open, decide |
+| 7 | `models/old/` kept beside the current model | Make sure the paper cites the right one | check |
+| 8 | `display.py` hardcodes `0.80` instead of `PERCLOS_THRESHOLD` | Cosmetic; UI lies if config changes | minor |
+| 9 | `except requests.exceptions...` when `requests` may be `None` | AttributeError on an unrelated failure | minor |
+
+**Note:** `pygame` is no longer used by anything — the surviving app has no
+local audio. The Python 3.11 pin therefore no longer applies technically
+(3.13/3.14 would work). Keep 3.11 anyway so the whole team matches, but the
+constraint is worth knowing if it ever gets in the way.
 
 ---
 
@@ -293,12 +342,17 @@ Plagiarism check - Editor review - Adviser approval - Submit
 ## Priority Order This Week
 
 ```
-1. Live-camera test of the consolidated app   <- blocks everything
-2. Agree the fusion mode
-3. Fix PERCLOS alert spam
+1. Live-camera test of the consolidated app       <- blocks everything
+2. Fix the 4 alert-path bugs (3a-3d)              <- blocks testing
+3. Agree the fusion mode + the PERCLOS threshold  <- blocks Results
 4. Fix paper issues
 5. Finalize Android app UI
 6. Start participant recruitment
 7. Conduct 30 participant sessions
 8. Write Results + Discussion
 ```
+
+Items 1–3 all gate participant testing. Running 30 sessions before they
+are closed means collecting data you cannot use: alert spam, alarms that
+never clear, a dead PERCLOS metric, and alerts that silently never reach
+the phone would all be baked into your TP/FP/TN/FN counts.
