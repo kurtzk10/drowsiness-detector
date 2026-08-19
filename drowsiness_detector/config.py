@@ -30,7 +30,18 @@ PERCLOS_THRESHOLD = 0.15
 # sustain time — 0.0 means fire as soon as it crosses. What it does need
 # is the shared ALERT_COOLDOWN_SECONDS gate, which it gets by going
 # through StateManager.check() like every other alert.
-PERCLOS_ALERT_SECONDS = 0.0
+# Measured on real footage: PERCLOS moves slowly, so requiring it to stay
+# high for a few seconds costs no detection latency and rejects brief
+# excursions caused by a burst of blinks.
+PERCLOS_ALERT_SECONDS = 5.0
+
+# A rolling ratio is meaningless until the window actually holds data.
+# On the first live session PERCLOS fired at t=0.5s with ONE frame in the
+# window (1 closed / 1 total = 1.0), and kept firing while the window
+# filled: 5 seconds of history containing two blinks reads as 20% closed.
+# 17 of 17 spurious alerts in that session were this artifact. Until the
+# history spans this many seconds, PERCLOS reports 0.
+PERCLOS_MIN_WINDOW_SECONDS = 30
 
 # --- MAR (Mouth Aspect Ratio) ---
 MAR_THRESHOLD = 0.60         # above this = mouth considered open (yawn)
@@ -89,7 +100,13 @@ CNN_MODEL_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
     "models", "eye_state.tflite"
 )
-CNN_CLOSED_THRESHOLD = 0.5   # closed-probability above this = eyes closed
+# Raised from 0.5 after the first live session. The model separates open
+# from closed very well on real footage (AUC 0.971 against the calibrated
+# EAR), but its probabilities are shifted high: at 0.5 it called 29.9% of
+# frames closed where EAR said 9.4%, a 23% false-positive rate. At 0.9 the
+# false-positive rate is 1.2% and the closed-rate matches EAR's.
+# Re-check this if the camera, lighting or model changes.
+CNN_CLOSED_THRESHOLD = 0.9
 CNN_EYE_MARGIN = 0.3         # must match dataset_prep.py's extraction margin
                              # (0.3) or inference sees crops the model was
                              # never trained on

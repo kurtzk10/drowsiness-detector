@@ -3,7 +3,7 @@ from collections import deque
 from config import (
     EAR_ALERT_SECONDS, MAR_ALERT_SECONDS, HEAD_ALERT_SECONDS,
     ALERT_COOLDOWN_SECONDS, PERCLOS_WINDOW_SECONDS, PERCLOS_THRESHOLD,
-    PERCLOS_ALERT_SECONDS,
+    PERCLOS_ALERT_SECONDS, PERCLOS_MIN_WINDOW_SECONDS,
     EAR_THRESHOLD, RECOVERY_SECONDS
 )
 
@@ -88,6 +88,13 @@ class StateManager:
             self._ear_history.popleft()
 
         if len(self._ear_history) == 0:
+            return 0.0
+
+        # A ratio over a nearly-empty window is noise, not a measurement:
+        # one closed frame out of one reads as 100%. Report 0 until the
+        # history actually spans enough time to mean something.
+        span = self._ear_history[-1][0] - self._ear_history[0][0]
+        if span < PERCLOS_MIN_WINDOW_SECONDS:
             return 0.0
 
         # An explicit per-frame verdict (from the EAR/CNN fusion) wins when
