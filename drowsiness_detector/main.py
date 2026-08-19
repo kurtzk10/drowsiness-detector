@@ -9,7 +9,7 @@ from config import CAMERA_SOURCE, EAR_THRESHOLD, MAR_THRESHOLD, \
     CALIBRATION_SECONDS, EAR_THRESHOLD_MULTIPLIER, MAR_OPEN_DELTA, MAR_THRESHOLD_MIN, MAR_THRESHOLD_MAX, \
     HEAD_YAW_THRESHOLD_OFFSET, HEAD_PITCH_THRESHOLD_OFFSET, \
     CNN_ENABLED, CNN_MODEL_PATH, CNN_CLOSED_THRESHOLD, CNN_EYE_MARGIN, \
-    CNN_FUSION_MODE, IR_MODE, SESSION_LOG, SESSION_LOG_DIR
+    CNN_FUSION_MODE, PERCLOS_FUSION_MODE, IR_MODE, SESSION_LOG, SESSION_LOG_DIR
 from metrics import (calculate_EAR, calculate_MAR, calculate_head_pose,
                      get_eye_points_for_drawing, get_mouth_points_for_drawing,
                      LEFT_EYE, RIGHT_EYE, extract_eye_crop)
@@ -345,10 +345,14 @@ def main():
             mouth_open = mar > mar_th
             head_off = (abs(rel_yaw) > yaw_offset or abs(rel_pitch) > pitch_offset)
 
-            # Scored from the fused verdict, so PERCLOS measures the same
-            # eye state the alert does — and picks up the calibrated
-            # threshold, which the raw-EAR path never did.
-            perclos = state.update_perclos(ear, eyes_closed)
+            # PERCLOS gets its own, stricter verdict. A 60s rolling
+            # average amplifies single-frame noise that the
+            # 2s-sustained alert shrugs off, so the long-window metric
+            # only counts frames where EAR and the CNN agree.
+            perclos_closed = fuse_eye_state(
+                ear_closed, cnn_closed,
+                PERCLOS_FUSION_MODE or CNN_FUSION_MODE)
+            perclos = state.update_perclos(ear, perclos_closed)
             perclos_high = state.is_drowsy_perclos(perclos)
 
             # ── Alert logic ───────────────────────────────────────────

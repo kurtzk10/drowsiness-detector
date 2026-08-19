@@ -58,7 +58,12 @@ ALERT_COOLDOWN_SECONDS = 4.0  # minimum gap between repeat alerts
 # --- Calibration ---
 CALIBRATION_SECONDS = 5.0     # duration of baseline sampling
 # Dynamic threshold multipliers (applied to baseline average)
-EAR_THRESHOLD_MULTIPLIER = 0.85      # baseline EAR * 0.85
+# Was 0.85, which put the cutoff inside normal EAR fluctuation: in the calm
+# stretches of the second live session EAR called 17-31% of frames closed
+# while the CNN said 2-7%, and that noise fed straight into PERCLOS. At
+# 0.75 the two agree 91% of the time (was 80%) and partial eyelid droop —
+# which is real drowsiness evidence — still registers.
+EAR_THRESHOLD_MULTIPLIER = 0.75      # baseline EAR * 0.75
 # MAR is calibrated by ADDITION, not multiplication. The baseline is a
 # CLOSED mouth (MAR ~0.05), so scaling it up never reaches a yawn (~0.70)
 # — baseline * 1.20 lands at ~0.06 and any slight lip parting trips it.
@@ -120,6 +125,14 @@ CNN_EYE_MARGIN = 0.3         # must match dataset_prep.py's extraction margin
 # and the existing duration gate (EAR_ALERT_SECONDS) already absorbs
 # single-frame noise before anything fires.
 CNN_FUSION_MODE = "or"
+
+# PERCLOS is scored from a STRICTER verdict than the instantaneous alert.
+# The two have different error costs: one stray closed frame barely moves a
+# 2s-sustained alert, but it directly inflates a 60s rolling average. Using
+# 'and' here means PERCLOS only counts frames where both signals agree, so
+# detection stays sensitive while the long-window metric stays precise.
+# Set to None to reuse CNN_FUSION_MODE.
+PERCLOS_FUSION_MODE = "and"
 
 # ── IR / night-vision simulation (prototype) ───
 # Simulates a monochrome IR camera feed from a normal webcam so the pipeline

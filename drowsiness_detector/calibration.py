@@ -90,10 +90,14 @@ class Calibrator:
             self._result = CalibrationResult()
             return
 
-        avg_ear = float(np.mean(self._samples_ear))
-        avg_mar = float(np.mean(self._samples_mar))
-        avg_yaw = float(np.mean(self._samples_yaw))
-        avg_pitch = float(np.mean(self._samples_pitch))
+        # Median, not mean. A blink during the calibration window drags a
+        # mean EAR down and a stray solvePnP frame drags the pose baseline
+        # around; the median shrugs both off. The pre-consolidation app used
+        # median here and the behaviour was lost in the merge.
+        avg_ear = float(np.median(self._samples_ear))
+        avg_mar = float(np.median(self._samples_mar))
+        avg_yaw = float(np.median(self._samples_yaw))
+        avg_pitch = float(np.median(self._samples_pitch))
 
         self._result = CalibrationResult(
             baseline_ear=avg_ear,
