@@ -292,13 +292,20 @@ Plagiarism check - Editor review - Adviser approval - Submit
 |---|---|---|---|
 | 1 | PERCLOS alert has no cooldown — ~30 alerts/sec | Alert spam; blocks testing | ✅ **fixed** `bc0dc27` |
 | 2 | Auto-clear uses static thresholds, not calibrated | Alarm can never clear for small-eyed drivers | ✅ **fixed** `7d669d6` |
-| 3 | PERCLOS threshold 0.80 needs 24s of 30s closed | Metric contributes nothing | open — **team decision** |
-| 4 | Phone-alert failures silent — no audio, no log | Alerts vanish; become false negatives | open |
-| 5 | Never run against a live camera since consolidation | Unknown | open |
+| 3 | PERCLOS threshold 0.80 needs 24s of 30s closed | Metric contributes nothing | ✅ **now 0.15 / 60s** `dad6959` — validate in pilot |
+| 4 | Phone-alert failures silent — no audio, no log | Alerts vanish; become false negatives | ✅ **surfaced** `dad6959` — see caveat below |
+| 5 | Never run against a live camera since consolidation | Unknown | **open — yours** |
 | 6 | Fusion mode not yet agreed by the team | Changes what the results mean | open — **team decision** |
 | 7 | `models/old/` kept beside the current model | Make sure the paper cites the right one | check |
-| 8 | `display.py` hardcodes `0.80` instead of `PERCLOS_THRESHOLD` | Cosmetic; UI lies if config changes | minor |
-| 9 | `except requests.exceptions...` when `requests` may be `None` | AttributeError on an unrelated failure | minor |
+| 8 | `display.py` hardcodes `0.80` instead of `PERCLOS_THRESHOLD` | Cosmetic; UI lies if config changes | ✅ fixed `dad6959` |
+| 9 | `except requests.exceptions...` when `requests` may be `None` | AttributeError on an unrelated failure | ✅ fixed `dad6959` |
+
+**Caveat on #4:** failures are now *visible* — the sidebar shows
+`PHONE OK` / `PHONE FAIL xN` / `NO PHONE`, and the console logs once every
+10s rather than 30×/second. But there is still **no local audio**, so an
+unreachable phone still means the driver hears nothing. The operator can
+now see it happening; the driver is still not alerted. Restoring a laptop
+beep as a fallback is a separate decision.
 
 **Note:** `pygame` is no longer used by anything — the surviving app has no
 local audio. The Python 3.11 pin therefore no longer applies technically
@@ -329,8 +336,8 @@ constraint is worth knowing if it ever gets in the way.
 
 ```
 1. Live-camera test of the consolidated app       <- blocks everything
-2. Fix 3d (silent phone-alert failures)           <- blocks testing
-3. Agree the fusion mode + the PERCLOS threshold  <- blocks Results
+2. Pilot run: validate PERCLOS 0.15 and the fusion mode
+3. Agree the fusion mode with the team            <- blocks Results
 4. Fix paper issues
 5. Finalize Android app UI
 6. Start participant recruitment
@@ -338,11 +345,29 @@ constraint is worth knowing if it ever gets in the way.
 8. Write Results + Discussion
 ```
 
-Items 1–3 all gate participant testing. Running 30 sessions before they
-are closed means collecting data you cannot use — a dead PERCLOS metric
-and alerts that silently never reach the phone would both be baked into
-your TP/FP/TN/FN counts.
+Item 1 still gates everything, and it is the one nobody has done. Every
+verification so far ran with the camera, landmarker and network stubbed,
+or over a synthetic clip — the pipeline has never seen a real face.
 
-3d is the dangerous one: it fails **invisibly**. The laptop still draws
-its banner, so a session looks fine while the driver is alerted by
-nothing, and you would only find out afterwards — if at all.
+Item 2 matters because PERCLOS just went from inert to live. At 0.15 it
+can now actually fire, which is the point, but nobody has yet seen what
+rate it fires at on real footage. Check that before it reaches
+participants, not after.
+
+## Offline validation — `tools/validate_video.py`
+
+Runs the real pipeline over a recorded clip, headless, and writes a
+per-frame CSV plus a summary:
+
+```powershell
+.venv\Scripts\python.exe tools\validate_video.py clip.mp4
+.venv\Scripts\python.exe tools\validate_video.py clip.mp4 --fusion and
+```
+
+Record one clip of a driver, then replay it through each fusion mode. Same
+footage, four modes, directly comparable — that is the Results 3.5 ablation
+with no extra sessions. It also reports the processing FPS that Results 3.3
+needs. Repeat runs produce byte-identical CSVs.
+
+It is **not** a substitute for item 1: it never touches a camera, a window,
+or the phone.

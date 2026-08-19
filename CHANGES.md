@@ -1,7 +1,7 @@
 # Change Log — 19 August 2026
 
 Everything below is on branch `build1.0`, **committed locally and not yet
-pushed**. Ten commits, from `440fabb` to `7d669d6`.
+pushed**. Eleven commits, from `440fabb` to `dad6959`.
 
 > **Before you pull:** `drowsy/` has been deleted. If you have uncommitted
 > work in there, say so first.
@@ -22,6 +22,7 @@ pushed**. Ten commits, from `440fabb` to `7d669d6`.
 | 8 | Recorded four confirmed alert-path bugs | `7127660` |
 | 9 | Fixed PERCLOS alert spam | `bc0dc27` |
 | 10 | Fixed alarm auto-clear | `7d669d6` |
+| 11 | Alert-delivery status, PERCLOS 0.15/60s, offline harness | `dad6959` |
 
 Also: Python 3.11.9 installed at `C:\Python311\python.exe` with a project
 `.venv` — this is environment setup, not a commit.
@@ -250,45 +251,79 @@ whole team matches.
 
 ---
 
-## 6. Still open
+## 6. Alert delivery, PERCLOS, and an offline harness
+
+### Alert delivery is now visible
+
+`HttpAlertClient` fired into the void — every failure swallowed by a bare
+`pass`. With no local audio left, a session could run its whole length
+alerting nobody while the laptop still drew its banner.
+
+It now records each send's outcome and exposes a status the sidebar shows:
+
+| Indicator | Meaning |
+|---|---|
+| `NO PHONE` (yellow) | discovery has not found a phone yet |
+| `PHONE OK` (green) | last alert was delivered |
+| `PHONE FAIL xN` (red) | N consecutive alerts did **not** arrive |
+
+Failures log at most once per 10s instead of 30×/second, and recovery is
+announced. This also removed a latent `AttributeError` from referencing
+`requests.exceptions` when `requests` may be `None`.
+
+> **Still true:** there is no local audio. The operator can now *see* that
+> alerts are not landing, but the driver still hears nothing. Restoring a
+> laptop beep as a fallback is a separate decision.
+
+### PERCLOS: 0.80 → 0.15, window 30s → 60s
+
+0.80 over 30s required eyes shut for **24 of every 30 seconds**, while the
+eyes-closed alert already fires at 2s — the metric could never contribute.
+0.15 is the usual drowsiness criterion and sits well clear of normal
+blinking (~2% of the time). 0.80 most likely came from *PERCLOS-P80*, where
+the 80 refers to eyelid **closure**, not fraction of frames.
+
+**This needs a pilot run.** PERCLOS just went from inert to live; nobody has
+seen what rate it fires at on real footage. It also needs a citation in the
+paper.
+
+### `tools/validate_video.py`
+
+Replays a recorded clip through the real detection modules — headless, no
+camera, no phone — and writes per-frame CSV plus a summary.
+
+```powershell
+.venv\Scripts\python.exe toolsalidate_video.py clip.mp4
+.venv\Scripts\python.exe toolsalidate_video.py clip.mp4 --fusion and
+```
+
+Record one clip, replay it through each fusion mode: same footage, four
+modes, directly comparable. That is the Results 3.5 ablation with no extra
+participant sessions. It also reports processing FPS for Results 3.3.
+
+Two things had to become clock-injectable for it to be trustworthy, and
+both were real bugs the harness exposed:
+
+- `Calibrator` counted **wall-clock** seconds, so calibration never
+  completed on a clip decoding faster than real time. It gained `finish()`.
+- `StateManager`'s duration gates were **also** wall-clock, so replay
+  starved every duration-gated alert — only PERCLOS (duration 0) fired. It
+  gained `now_fn`.
+
+Both default to the real clock, so live behaviour is unchanged. Repeat runs
+produce byte-identical CSVs.
+
+---
+
+## 7. Still open
 
 | # | Issue | Why it matters |
 |---|---|---|
-| 1 | **Never run on a live camera** since consolidation | Everything was verified with camera, landmarker and network stubbed |
-| 2 | **Phone-alert failures are silent** | See below — the dangerous one |
-| 3 | **PERCLOS threshold 0.80** | Needs eyes shut 24 of 30 seconds; the metric is inert |
-| 4 | **Fusion mode not agreed** | Decides what the results measure |
+| 1 | **Never run on a live camera** | Everything was stubbed or synthetic — the pipeline has never seen a real face |
+| 2 | **Pilot-validate PERCLOS 0.15** | Just went from inert to live; unknown firing rate on real footage |
+| 3 | **Fusion mode not agreed** | Decides what the results measure |
+| 4 | No local audio fallback | Driver hears nothing if the phone is unreachable — now visible, still unfixed |
 | 5 | `models/old/` sits beside the current model | Make sure the paper cites the right one |
-
-### Why #2 is the dangerous one
-
-There is no local audio any more. If discovery fails or the phone drops off
-the hotspot, `HttpAlertClient` keeps POSTing to `127.0.0.1` and swallows
-every error:
-
-```python
-except requests.exceptions.ConnectionError:
-    pass          # no log, no retry, no fallback
-```
-
-The laptop still draws its banner, so a session **looks** fine while the
-driver is alerted by nothing — and every such alert silently becomes a
-false negative in the results. At minimum: log the failure and show
-phone-connected status on screen.
-
-### Why #3 needs a decision
-
-Window 30s × threshold 0.80 means eyes shut for **24 of the last 30
-seconds** — while the plain eyes-closed alert already fires at 2s. PERCLOS
-can only ever fire 12× later than the alert that already covers it, so it
-contributes nothing. The literature normally puts the PERCLOS drowsiness
-threshold near **0.15**; 0.80 may be a conflation with PERCLOS-P80, which
-refers to 80% *eyelid closure*, not 80% *of frames*.
-
-Decide deliberately. If 0.80 stays, the paper should not claim PERCLOS as a
-working detector.
-
----
 
 ## How this was tested
 
