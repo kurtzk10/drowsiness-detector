@@ -136,31 +136,17 @@ closed, and able only to cancel) is available as `"and"`. With CLOSED
 recall at ~72–73%, veto-only can only *lower* sensitivity versus EAR alone.
 **The whole team should agree, and the choice must be stated in the paper.**
 
-**3. Fix the four alert-path bugs below.**
-All four are confirmed by test, all four affect what participant data
-means, and none of them is visible from just watching the screen.
+**3. Two alert-path bugs remain (two are fixed).**
 
-**3a. PERCLOS alert spam.** `main.py` fires `perclos` on *every frame*
-while PERCLOS is high — that branch never sets a cooldown, unlike the
-others:
-```python
-elif perclos_high and not state.in_cooldown("eyes"):
-    trigger_alert("perclos", http_client)   # no cooldown set for "perclos"
-```
-Measured: 200 alerts in 200 frames — about **30 phone alerts per second**.
+~~**3a. PERCLOS alert spam**~~ — ✅ fixed in `bc0dc27`. It now goes through
+`StateManager.check()` like every other alert: 1 alert per cooldown
+instead of 200 in 200 frames.
 
-**3b. Auto-clear ignores calibration.** `state.is_driver_alert()` compares
-against the static config values, not the calibrated ones the alerts
-actually use:
-```python
-all_normal = (ear >= EAR_THRESHOLD and mar <= MAR_THRESHOLD and ...)
-```
-A driver with baseline EAR 0.22 calibrates to `ear_th = 0.187`, but the
-alarm only clears at `ear >= 0.25` — a value their open eye never reaches.
-**The phone alarm can never auto-clear for that driver.** Small-eyed
-participants are exactly who calibration exists for. Head pose has the
-same split: alerts use `yaw_offset` (25°), recovery uses
-`HEAD_YAW_THRESHOLD` (30°).
+~~**3b. Auto-clear ignores calibration**~~ — ✅ fixed in `7d669d6`.
+`is_driver_alert()` now takes the `eyes_closed` / `mouth_open` / `head_off`
+verdicts that `main()` already computed, so recovery and detection agree by
+construction. This also means the CNN feeds recovery, which it never did
+before.
 
 **3c. PERCLOS threshold is effectively dead.** Window 30s, threshold 0.80
 means eyes must be shut for **24 of the last 30 seconds** — while the
@@ -304,12 +290,12 @@ Plagiarism check - Editor review - Adviser approval - Submit
 
 | # | Issue | Impact | Status |
 |---|---|---|---|
-| 1 | PERCLOS alert has no cooldown — ~30 alerts/sec | Alert spam; blocks testing | open |
-| 2 | Auto-clear uses static thresholds, not calibrated | Alarm can never clear for small-eyed drivers | open |
-| 3 | PERCLOS threshold 0.80 needs 24s of 30s closed | Metric contributes nothing | open, decide |
+| 1 | PERCLOS alert has no cooldown — ~30 alerts/sec | Alert spam; blocks testing | ✅ **fixed** `bc0dc27` |
+| 2 | Auto-clear uses static thresholds, not calibrated | Alarm can never clear for small-eyed drivers | ✅ **fixed** `7d669d6` |
+| 3 | PERCLOS threshold 0.80 needs 24s of 30s closed | Metric contributes nothing | open — **team decision** |
 | 4 | Phone-alert failures silent — no audio, no log | Alerts vanish; become false negatives | open |
 | 5 | Never run against a live camera since consolidation | Unknown | open |
-| 6 | Fusion mode not yet agreed by the team | Changes what the results mean | open, decide |
+| 6 | Fusion mode not yet agreed by the team | Changes what the results mean | open — **team decision** |
 | 7 | `models/old/` kept beside the current model | Make sure the paper cites the right one | check |
 | 8 | `display.py` hardcodes `0.80` instead of `PERCLOS_THRESHOLD` | Cosmetic; UI lies if config changes | minor |
 | 9 | `except requests.exceptions...` when `requests` may be `None` | AttributeError on an unrelated failure | minor |
@@ -343,7 +329,7 @@ constraint is worth knowing if it ever gets in the way.
 
 ```
 1. Live-camera test of the consolidated app       <- blocks everything
-2. Fix the 4 alert-path bugs (3a-3d)              <- blocks testing
+2. Fix 3d (silent phone-alert failures)           <- blocks testing
 3. Agree the fusion mode + the PERCLOS threshold  <- blocks Results
 4. Fix paper issues
 5. Finalize Android app UI
@@ -353,6 +339,10 @@ constraint is worth knowing if it ever gets in the way.
 ```
 
 Items 1–3 all gate participant testing. Running 30 sessions before they
-are closed means collecting data you cannot use: alert spam, alarms that
-never clear, a dead PERCLOS metric, and alerts that silently never reach
-the phone would all be baked into your TP/FP/TN/FN counts.
+are closed means collecting data you cannot use — a dead PERCLOS metric
+and alerts that silently never reach the phone would both be baked into
+your TP/FP/TN/FN counts.
+
+3d is the dangerous one: it fails **invisibly**. The laptop still draws
+its banner, so a session looks fine while the driver is alerted by
+nothing, and you would only find out afterwards — if at all.
