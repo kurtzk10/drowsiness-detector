@@ -1,3 +1,5 @@
+import os
+
 # ─────────────────────────────────────────
 #  DROWSINESS DETECTOR — CONFIG
 #  Change these values to tune the system
@@ -47,10 +49,38 @@ SHOW_LANDMARKS = True         # draw eye/mouth landmark dots
 SHOW_FPS = True               # show FPS counter on screen
 
 # ── Hybrid CNN Eye Classifier ──────────────────
+# A small CNN classifies each eye crop as open/closed, complementing the
+# geometric EAR. EAR is robust but scale- and angle-sensitive; the CNN reads
+# appearance instead, so the two fail in different ways. If the model file is
+# missing or fails to load the system falls back to EAR alone automatically.
 CNN_ENABLED = True
-import os
 CNN_MODEL_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
     "models", "eye_state.tflite"
 )
-CNN_CONFIDENCE_THRESHOLD = 0.75
+CNN_CLOSED_THRESHOLD = 0.5   # closed-probability above this = eyes closed
+CNN_EYE_MARGIN = 0.3         # must match dataset_prep.py's extraction margin
+                             # (0.3) or inference sees crops the model was
+                             # never trained on
+
+# How the CNN verdict combines with the EAR verdict:
+#   "ear"  - EAR only; CNN runs for display but never affects alerts
+#   "or"   - either says closed -> closed  (highest recall, more false alarms)
+#   "and"  - both must say closed         (fewest false alarms, lowest recall)
+#   "cnn"  - CNN decides; EAR used only when a crop is unavailable
+# "or" is the default: a missed drowsy driver is worse than a spurious alert,
+# and the existing duration gate (EAR_ALERT_SECONDS) already absorbs
+# single-frame noise before anything fires.
+CNN_FUSION_MODE = "or"
+
+# ── IR / night-vision simulation (prototype) ───
+# Simulates a monochrome IR camera feed from a normal webcam so the pipeline
+# can be validated ahead of a dark-setting IR deployment. Applied BEFORE
+# detection, so MediaPipe runs on IR-style grayscale input. Toggle with 'i'.
+IR_MODE = False               # start with IR simulation enabled?
+IR_CONTRAST = 2.0             # CLAHE clip limit (0 = off) — ISP-style contrast
+IR_GAMMA = 1.4                # >1 lifts midtones so skin looks pale/luminous
+                              #   under near-IR (melanin is ~transparent to IR)
+IR_VIGNETTE = 0.35            # 0..1 — IR-illuminator hotspot: bright center,
+                              #   darker edges. Higher = stronger falloff.
+IR_NOISE = 6.0                # std-dev of low-light sensor noise (0 = off).

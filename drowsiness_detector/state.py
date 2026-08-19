@@ -20,7 +20,7 @@ class StateManager:
         # Cooldowns: when is each alert allowed to fire again
         self._cooldown_until = {}
 
-        # PERCLOS: rolling window of (timestamp, ear_value) tuples
+        # PERCLOS: rolling window of (timestamp, ear_value, closed) tuples
         self._ear_history = deque()
 
         # Durations per metric
@@ -68,13 +68,13 @@ class StateManager:
         return time.time() - self._start[name]
 
     # ── PERCLOS ───────────────────────────────────────────────────
-    def update_perclos(self, ear):
+    def update_perclos(self, ear, closed=None):
         """
         Push current EAR reading into the rolling window.
         Returns current PERCLOS value (0.0 to 1.0).
         """
         now = time.time()
-        self._ear_history.append((now, ear))
+        self._ear_history.append((now, ear, closed))
         # Drop entries older than the window
         cutoff = now - PERCLOS_WINDOW_SECONDS
         while self._ear_history and self._ear_history[0][0] < cutoff:
@@ -83,8 +83,15 @@ class StateManager:
         if len(self._ear_history) == 0:
             return 0.0
 
-        closed = sum(1 for _, e in self._ear_history if e < EAR_THRESHOLD)
-        return round(closed / len(self._ear_history), 4)
+        # An explicit per-frame verdict (from the EAR/CNN fusion) wins when
+        # supplied. Without it we fall back to the static config threshold,
+        # which ignores calibration — so passing `closed` is what makes
+        # PERCLOS agree with the alert it is supposed to predict.
+        closed_count = sum(
+            1 for _, e, c in self._ear_history
+            if (c if c is not None else e < EAR_THRESHOLD)
+        )
+        return round(closed_count / len(self._ear_history), 4)
 
     def is_drowsy_perclos(self, perclos):
         return perclos >= PERCLOS_THRESHOLD

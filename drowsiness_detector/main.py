@@ -8,7 +8,8 @@ from config import CAMERA_SOURCE, EAR_THRESHOLD, MAR_THRESHOLD, \
     HEAD_YAW_THRESHOLD, HEAD_PITCH_THRESHOLD, SHOW_LANDMARKS, \
     CALIBRATION_SECONDS, EAR_THRESHOLD_MULTIPLIER, MAR_THRESHOLD_MULTIPLIER, \
     HEAD_YAW_THRESHOLD_OFFSET, HEAD_PITCH_THRESHOLD_OFFSET, \
-    CNN_ENABLED, CNN_MODEL_PATH, CNN_CONFIDENCE_THRESHOLD
+    CNN_ENABLED, CNN_MODEL_PATH, CNN_CLOSED_THRESHOLD, CNN_EYE_MARGIN, \
+    CNN_FUSION_MODE, IR_MODE
 from metrics import (calculate_EAR, calculate_MAR, calculate_head_pose,
                      get_eye_points_for_drawing, get_mouth_points_for_drawing,
                      LEFT_EYE, RIGHT_EYE, extract_eye_crop)
@@ -19,6 +20,7 @@ from http_alerts import HttpAlertClient
 from calibration import Calibrator
 from discovery import PhoneDiscovery
 from streamer import Streamer
+from filters import apply_ir_filter
 
 from mediapipe.tasks.python import BaseOptions
 from mediapipe.tasks.python.vision import (
@@ -30,6 +32,30 @@ if _parent not in sys.path:
     sys.path.insert(0, _parent)
 
 from inference.eye_classifier import EyeClassifier
+
+
+def fuse_eye_state(ear_closed, cnn_closed, mode):
+    """
+    Combine the geometric (EAR) and appearance (CNN) verdicts on eye closure.
+
+    `cnn_closed` is None when the CNN had nothing to say this frame — model
+    disabled or unloaded, or both eye crops fell outside the frame. In that
+    case every mode degrades to the EAR verdict, so losing the model can
+    never leave the detector with no opinion at all.
+
+    See CNN_FUSION_MODE in config.py for what each mode is for.
+    """
+    if cnn_closed is None or mode == "ear":
+        return ear_closed
+    if mode == "or":
+        return ear_closed or cnn_closed
+    if mode == "and":
+        return ear_closed and cnn_closed
+    if mode == "cnn":
+        return cnn_closed
+    # Unknown mode in config — fall back to the geometric signal rather than
+    # silently disabling detection.
+    return ear_closed
 
 
 def _get_face_bbox(face_lm, w, h):
@@ -92,6 +118,11 @@ def main():
     )
 
     eye_classifier = EyeClassifier(CNN_MODEL_PATH)
+    if CNN_ENABLED and eye_classifier.is_available():
+        print(f"[INFO] CNN fusion mode: {CNN_FUSION_MODE} "
+              f"(closed if p > {CNN_CLOSED_THRESHOLD})")
+    elif not CNN_ENABLED:
+        print("[INFO] CNN disabled in config — EAR-only eye detection.")
 
     # Dynamic thresholds (start with config defaults, updated after calibration)
     ear_th = EAR_THRESHOLD
@@ -115,8 +146,11 @@ def main():
     frame_count = 0
 
     cal_phone_requested = False
+    ir_enabled = IR_MODE
 
-    print("[INFO] System running. Press Q to quit, C to calibrate.")
+    print("[INFO] System running. Q=quit, C=calibrate, I=toggle IR sim.")
+    if ir_enabled:
+        print("[INFO] IR simulation ON (monochrome).")
     print("[INFO] Look at the camera to begin detection.")
 
     while True:
@@ -127,6 +161,13 @@ def main():
             continue
 
         frame = cv2.flip(frame, 1)
+
+        # IR simulation runs before detection AND before raw_feed is
+        # taken, so MediaPipe, the CNN crops and the phone stream all
+        # see the same monochrome input a real IR camera would deliver.
+        if ir_enabled:
+            frame = apply_ir_filter(frame)
+
         raw_feed = frame.copy()
         h, w = frame.shape[:2]
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -224,6 +265,9 @@ def main():
             if key == ord('c'):
                 calibrator.start()
                 print("[CALIB] Starting calibration...")
+            if key == ord('i'):
+                ir_enabled = not ir_enabled
+                print(f"[INFO] IR simulation {'ON' if ir_enabled else 'OFF'}.")
             continue
 
         # ── Pick closest face ─────────────────────────────────────
@@ -239,6 +283,9 @@ def main():
             if key == ord('c'):
                 calibrator.start()
                 print("[CALIB] Starting calibration...")
+            if key == ord('i'):
+                ir_enabled = not ir_enabled
+                print(f"[INFO] IR simulation {'ON' if ir_enabled else 'OFF'}.")
             continue
 
         # ── Compute metrics ───────────────────────────────────────
@@ -247,7 +294,6 @@ def main():
         yaw, pitch = calculate_head_pose(face_lm, w, h)
         rel_yaw = yaw - baseline_yaw
         rel_pitch = pitch - baseline_pitch
-        perclos = state.update_perclos(ear)
 
         # ── Draw landmarks ────────────────────────────────────────
         if SHOW_LANDMARKS:
@@ -256,19 +302,29 @@ def main():
             draw_landmarks(frame, l_eye, r_eye, mouth_pts, ear, mar, ear_th, mar_th)
 
         # ── Check conditions ──────────────────────────────────────
-        eyes_closed = ear < ear_th
+        # ── CNN eye state ─────────────────────────────────────────
+        # Crops come off `raw_feed`, the untouched copy taken before any
+        # drawing. Reading `frame` here would feed the model the landmark
+        # dots painted over the eye a few lines above — patches unlike
+        # anything in the training set.
+        cnn_prob = None
+        if CNN_ENABLED and eye_classifier.is_available():
+            left_crop = extract_eye_crop(raw_feed, face_lm, LEFT_EYE, w, h,
+                                         margin=CNN_EYE_MARGIN)
+            right_crop = extract_eye_crop(raw_feed, face_lm, RIGHT_EYE, w, h,
+                                          margin=CNN_EYE_MARGIN)
+            cnn_prob = eye_classifier.predict(left_crop, right_crop)
 
-        if eyes_closed and CNN_ENABLED \
-                and eye_classifier.is_available():
-            left_crop  = extract_eye_crop(
-                frame, face_lm, LEFT_EYE, w, h)
-            right_crop = extract_eye_crop(
-                frame, face_lm, RIGHT_EYE, w, h)
-            prob = eye_classifier.predict(left_crop, right_crop)
-            if prob is not None:
-                eyes_closed = prob >= CNN_CONFIDENCE_THRESHOLD
+        ear_closed = ear < ear_th
+        cnn_closed = None if cnn_prob is None else cnn_prob > CNN_CLOSED_THRESHOLD
+        eyes_closed = fuse_eye_state(ear_closed, cnn_closed, CNN_FUSION_MODE)
         mouth_open = mar > mar_th
         head_off = (abs(rel_yaw) > yaw_offset or abs(rel_pitch) > pitch_offset)
+
+        # Scored from the fused verdict, so PERCLOS measures the same
+        # eye state the alert does — and picks up the calibrated
+        # threshold, which the raw-EAR path never did.
+        perclos = state.update_perclos(ear, eyes_closed)
         perclos_high = state.is_drowsy_perclos(perclos)
 
         # ── Alert logic ───────────────────────────────────────────
@@ -312,7 +368,8 @@ def main():
 
         # ── Draw UI ───────────────────────────────────────────────
         draw_ui(frame, ear, mar, rel_yaw, rel_pitch, perclos, state, alerts_fired,
-                fps, ear_th, mar_th, yaw_offset, pitch_offset)
+                fps, ear_th, mar_th, yaw_offset, pitch_offset,
+                cnn_prob=cnn_prob, eyes_closed=eyes_closed)
 
         if active_banner and time.time() < active_banner[2]:
             draw_alert_banner(frame, active_banner[0], active_banner[1])
@@ -335,6 +392,9 @@ def main():
             calibrator.start()
             alert_active = False
             print("[CALIB] Starting calibration...")
+        if key == ord('i'):
+            ir_enabled = not ir_enabled
+            print(f"[INFO] IR simulation {'ON' if ir_enabled else 'OFF'}.")
 
     cap.release()
     cv2.destroyAllWindows()

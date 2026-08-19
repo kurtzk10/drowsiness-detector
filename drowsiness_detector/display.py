@@ -58,7 +58,8 @@ def _bar(frame, x, y, w, h, value, max_val, color_ok, color_warn, color_danger, 
 
 
 def draw_ui(frame, ear, mar, yaw, pitch, perclos, state, alerts_fired, fps,
-            ear_th=None, mar_th=None, yaw_offset=None, pitch_offset=None):
+            ear_th=None, mar_th=None, yaw_offset=None, pitch_offset=None,
+            cnn_prob=None, eyes_closed=None):
     if ear_th is None:
         ear_th = EAR_THRESHOLD
     if mar_th is None:
@@ -104,6 +105,9 @@ def draw_ui(frame, ear, mar, yaw, pitch, perclos, state, alerts_fired, fps,
     metric_line("YAW:   ", f"{yaw:+.1f}deg", abs(yaw) <= yaw_offset)
     metric_line("PITCH: ", f"{pitch:+.1f}deg", abs(pitch) <= pitch_offset)
     metric_line("PERCLOS:", f"{perclos*100:.1f}%", perclos < 0.80)
+    # Only shown when the CNN actually produced a verdict this frame.
+    if cnn_prob is not None:
+        metric_line("CNN shut:", f"{cnn_prob*100:.0f}%", cnn_prob <= 0.5)
     y += 4
     cv2.line(frame, (x0, y), (w - 10, y), GRAY, 1)
     y += 12
@@ -111,7 +115,10 @@ def draw_ui(frame, ear, mar, yaw, pitch, perclos, state, alerts_fired, fps,
     # ── Progress bars ─────────────────────────────────────────────
     bar_w = w - x0 - 10
 
-    eye_elapsed   = state.get_elapsed("eyes",  ear < ear_th)
+    # Track the fused verdict when the caller supplies it, so the bar and
+    # the alert it predicts never disagree.
+    eye_cond      = (ear < ear_th) if eyes_closed is None else eyes_closed
+    eye_elapsed   = state.get_elapsed("eyes",  eye_cond)
     mouth_elapsed = state.get_elapsed("mouth", mar > mar_th)
     head_cond     = abs(yaw) > yaw_offset or abs(pitch) > pitch_offset
     head_elapsed  = state.get_elapsed("head",  head_cond)
