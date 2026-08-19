@@ -17,8 +17,15 @@ EAR_ALERT_SECONDS = 2.0     # seconds eyes must stay closed to alert
 
 # --- PERCLOS ---
 # Percentage of frames where EAR < threshold over a rolling window
-PERCLOS_WINDOW_SECONDS = 30  # rolling window duration in seconds
-PERCLOS_THRESHOLD = 0.80     # 80% of frames closed = drowsy
+PERCLOS_WINDOW_SECONDS = 60  # rolling window duration in seconds
+# Fraction of the window with eyes closed. 0.15 is the usual drowsiness
+# criterion and sits well clear of normal blinking (~2% of the time).
+# This was 0.80, which required eyes shut for 24 of every 30 seconds —
+# far beyond the 2s eyes-closed alert, so PERCLOS never contributed.
+# NOTE: 'PERCLOS-P80' in the literature refers to 80% eyelid CLOSURE,
+# not 80% of frames; that is most likely where 0.80 came from.
+# Validate this in a pilot run before the participant sessions.
+PERCLOS_THRESHOLD = 0.15
 # PERCLOS is already a rolling-window measure, so it needs no extra
 # sustain time — 0.0 means fire as soon as it crosses. What it does need
 # is the shared ALERT_COOLDOWN_SECONDS gate, which it gets by going

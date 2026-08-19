@@ -70,6 +70,20 @@ class Calibrator:
         if self.elapsed() >= self._duration:
             self._finalize()
 
+    def finish(self):
+        """
+        Finalize now, regardless of elapsed wall-clock time.
+
+        The live loop lets add_sample() finish on its own once `duration`
+        seconds have passed. Offline replay cannot: a clip decodes far
+        faster than real time, so wall-clock calibration would either never
+        complete or complete at a point that depends on machine speed.
+        Frame-driven callers collect their samples and call this instead,
+        which keeps results reproducible.
+        """
+        if not self._finished:
+            self._finalize()
+
     def _finalize(self):
         self._finished = True
         if len(self._samples_ear) == 0:

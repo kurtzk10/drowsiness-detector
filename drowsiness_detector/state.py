@@ -14,7 +14,13 @@ class StateManager:
     Also computes PERCLOS over a rolling time window.
     """
 
-    def __init__(self):
+    def __init__(self, now_fn=None):
+        # Clock source. Defaults to wall time; offline replay passes a
+        # video-time function instead, so a clip decoded faster than real
+        # time still measures durations in the footage's own seconds
+        # rather than the machine's. Alert counts then reproduce exactly.
+        self._now = now_fn or time.time
+
         # Timers: when did each condition START being true
         self._start = {}
         # Cooldowns: when is each alert allowed to fire again
@@ -37,7 +43,7 @@ class StateManager:
         Returns True if condition has been True long enough to alert,
         and the alert is not in cooldown.
         """
-        now = time.time()
+        now = self._now()
         required = self._durations[name]
 
         # In cooldown — skip
@@ -66,7 +72,7 @@ class StateManager:
             return 0.0
         if name not in self._start:
             return 0.0
-        return time.time() - self._start[name]
+        return self._now() - self._start[name]
 
     # ── PERCLOS ───────────────────────────────────────────────────
     def update_perclos(self, ear, closed=None):
@@ -74,7 +80,7 @@ class StateManager:
         Push current EAR reading into the rolling window.
         Returns current PERCLOS value (0.0 to 1.0).
         """
-        now = time.time()
+        now = self._now()
         self._ear_history.append((now, ear, closed))
         # Drop entries older than the window
         cutoff = now - PERCLOS_WINDOW_SECONDS
@@ -99,7 +105,7 @@ class StateManager:
 
     # ── In-cooldown helper for UI ──────────────────────────────────
     def in_cooldown(self, name):
-        return self._cooldown_until.get(name, 0) > time.time()
+        return self._cooldown_until.get(name, 0) > self._now()
 
     # ── Recovery / auto-clear ────────────────────────────────────
     def is_driver_alert(self, eyes_closed, mouth_open, head_off):
@@ -116,7 +122,7 @@ class StateManager:
         clear, which their open eye never did, so the alarm never cleared.
         Sharing the verdict makes the two agree by construction.
         """
-        now = time.time()
+        now = self._now()
         all_normal = not (eyes_closed or mouth_open or head_off)
         if all_normal:
             if "recovery" not in self._start:

@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 from config import (
     EAR_THRESHOLD, MAR_THRESHOLD,
-    HEAD_YAW_THRESHOLD, HEAD_PITCH_THRESHOLD,
+    HEAD_YAW_THRESHOLD, HEAD_PITCH_THRESHOLD, PERCLOS_THRESHOLD,
     EAR_ALERT_SECONDS, MAR_ALERT_SECONDS, HEAD_ALERT_SECONDS,
     SHOW_LANDMARKS, SHOW_FPS
 )
@@ -59,7 +59,7 @@ def _bar(frame, x, y, w, h, value, max_val, color_ok, color_warn, color_danger, 
 
 def draw_ui(frame, ear, mar, yaw, pitch, perclos, state, alerts_fired, fps,
             ear_th=None, mar_th=None, yaw_offset=None, pitch_offset=None,
-            cnn_prob=None, eyes_closed=None):
+            cnn_prob=None, eyes_closed=None, phone_status=None):
     if ear_th is None:
         ear_th = EAR_THRESHOLD
     if mar_th is None:
@@ -104,7 +104,7 @@ def draw_ui(frame, ear, mar, yaw, pitch, perclos, state, alerts_fired, fps,
     metric_line("MAR:   ", f"{mar:.3f}", mar <= mar_th)
     metric_line("YAW:   ", f"{yaw:+.1f}deg", abs(yaw) <= yaw_offset)
     metric_line("PITCH: ", f"{pitch:+.1f}deg", abs(pitch) <= pitch_offset)
-    metric_line("PERCLOS:", f"{perclos*100:.1f}%", perclos < 0.80)
+    metric_line("PERCLOS:", f"{perclos*100:.1f}%", perclos < PERCLOS_THRESHOLD)
     # Only shown when the CNN actually produced a verdict this frame.
     if cnn_prob is not None:
         metric_line("CNN shut:", f"{cnn_prob*100:.0f}%", cnn_prob <= 0.5)
@@ -147,6 +147,19 @@ def draw_ui(frame, ear, mar, yaw, pitch, perclos, state, alerts_fired, fps,
     if SHOW_FPS:
         cv2.putText(frame, f"FPS: {fps:.1f}", (x0, y),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.45, GRAY, 1, cv2.LINE_AA)
+        y += 18
+
+    # ── Phone delivery status ─────────────────────────────────────
+    # Alerts leave over HTTP with no feedback to the loop, so without this
+    # a dead phone looks exactly like a working one. An operator watching
+    # a session needs to see at a glance that alerts are landing.
+    if phone_status is not None:
+        label, fails = phone_status
+        colour = GREEN if label == "PHONE OK" else (
+            YELLOW if label == "NO PHONE" else RED)
+        text = label if not fails else f"{label} x{fails}"
+        cv2.putText(frame, text, (x0, y),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, colour, 1, cv2.LINE_AA)
 
     # ── Active alert banner ───────────────────────────────────────
     # Shown centered on the video feed (not in sidebar)

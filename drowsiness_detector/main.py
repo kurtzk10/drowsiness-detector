@@ -379,7 +379,8 @@ def main():
         # ── Draw UI ───────────────────────────────────────────────
         draw_ui(frame, ear, mar, rel_yaw, rel_pitch, perclos, state, alerts_fired,
                 fps, ear_th, mar_th, yaw_offset, pitch_offset,
-                cnn_prob=cnn_prob, eyes_closed=eyes_closed)
+                cnn_prob=cnn_prob, eyes_closed=eyes_closed,
+                phone_status=http_client.status())
 
         if active_banner and time.time() < active_banner[2]:
             draw_alert_banner(frame, active_banner[0], active_banner[1])
