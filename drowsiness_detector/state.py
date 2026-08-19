@@ -4,8 +4,7 @@ from config import (
     EAR_ALERT_SECONDS, MAR_ALERT_SECONDS, HEAD_ALERT_SECONDS,
     ALERT_COOLDOWN_SECONDS, PERCLOS_WINDOW_SECONDS, PERCLOS_THRESHOLD,
     PERCLOS_ALERT_SECONDS,
-    EAR_THRESHOLD, MAR_THRESHOLD, HEAD_YAW_THRESHOLD, HEAD_PITCH_THRESHOLD,
-    RECOVERY_SECONDS
+    EAR_THRESHOLD, RECOVERY_SECONDS
 )
 
 
@@ -103,18 +102,22 @@ class StateManager:
         return self._cooldown_until.get(name, 0) > time.time()
 
     # ── Recovery / auto-clear ────────────────────────────────────
-    def is_driver_alert(self, ear, mar, yaw, pitch):
+    def is_driver_alert(self, eyes_closed, mouth_open, head_off):
         """
-        Returns True if ALL metrics have been normal for RECOVERY_SECONDS,
-        meaning the driver is alert again and we can clear the phone alarm.
+        Returns True once every condition has stayed clear for
+        RECOVERY_SECONDS, meaning the driver is alert again and the phone
+        alarm can be cleared.
+
+        Takes the verdicts main() has already computed rather than
+        re-deriving them from raw metrics. Those verdicts carry the
+        calibrated thresholds and the CNN fusion; re-deriving here against
+        the static config values let recovery and alerting disagree — a
+        driver calibrating to ear_th 0.187 had to reach ear >= 0.25 to
+        clear, which their open eye never did, so the alarm never cleared.
+        Sharing the verdict makes the two agree by construction.
         """
         now = time.time()
-        all_normal = (
-            ear >= EAR_THRESHOLD
-            and mar <= MAR_THRESHOLD
-            and abs(yaw) <= HEAD_YAW_THRESHOLD
-            and abs(pitch) <= HEAD_PITCH_THRESHOLD
-        )
+        all_normal = not (eyes_closed or mouth_open or head_off)
         if all_normal:
             if "recovery" not in self._start:
                 self._start["recovery"] = now

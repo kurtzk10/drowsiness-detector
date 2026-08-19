@@ -368,7 +368,10 @@ def main():
                              time.time() + 3.0)
 
         # ── Auto-clear ────────────────────────────────────────────
-        if alert_active and state.is_driver_alert(ear, mar, rel_yaw, rel_pitch):
+        # Same verdicts that fired the alert, so recovery can never
+        # disagree with detection.
+        if alert_active and state.is_driver_alert(eyes_closed, mouth_open,
+                                                  head_off):
             clear_alert(http_client)
             alert_active = False
             active_banner = None
