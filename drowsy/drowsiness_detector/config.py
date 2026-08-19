@@ -75,7 +75,9 @@ IR_NOISE = 6.0                # std-dev of low-light sensor noise (0 = off).
 CNN_ENABLED = True
 CNN_MODEL_PATH = "models/eye_state.tflite"   # relative to this file
 CNN_CLOSED_THRESHOLD = 0.5   # closed-probability above this = eyes closed
-CNN_EYE_MARGIN = 0.25        # crop padding as a fraction of eye width
+CNN_EYE_MARGIN = 0.3         # must match dataset_prep.py's extraction
+                             # margin (0.3) or inference sees crops the
+                             # model was never trained on
 
 # How the CNN verdict combines with the EAR verdict:
 #   "ear"  - EAR only; CNN runs for display but never affects alerts
