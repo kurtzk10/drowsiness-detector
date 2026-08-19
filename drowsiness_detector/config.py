@@ -66,6 +66,15 @@ HEAD_PITCH_THRESHOLD_OFFSET = 15     # baseline pitch + 15 deg
 # Seconds all metrics must remain normal before auto-clearing alert
 RECOVERY_SECONDS = 3.0
 
+# --- Session logging ---
+# Writes logs/session_<stamp>.csv (one row per frame) and a .txt
+# summary on exit. This is the raw material for the participant
+# TP/FP/TN/FN analysis — without it every alert has to be
+# transcribed by hand from the console during the drive.
+SESSION_LOG = True
+SESSION_LOG_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs")
+
 # --- Display ---
 SHOW_LANDMARKS = True         # draw eye/mouth landmark dots
 SHOW_FPS = True               # show FPS counter on screen

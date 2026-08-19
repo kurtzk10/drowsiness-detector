@@ -14,3 +14,6 @@ venv/
 # OS
 Thumbs.db
 .DS_Store
+
+# Session logs (research data — archive separately, not in git)
+logs/
