@@ -36,7 +36,17 @@ ALERT_COOLDOWN_SECONDS = 4.0  # minimum gap between repeat alerts
 CALIBRATION_SECONDS = 5.0     # duration of baseline sampling
 # Dynamic threshold multipliers (applied to baseline average)
 EAR_THRESHOLD_MULTIPLIER = 0.85      # baseline EAR * 0.85
-MAR_THRESHOLD_MULTIPLIER = 1.20      # baseline MAR * 1.20
+# MAR is calibrated by ADDITION, not multiplication. The baseline is a
+# CLOSED mouth (MAR ~0.05), so scaling it up never reaches a yawn (~0.70)
+# — baseline * 1.20 lands at ~0.06 and any slight lip parting trips it.
+# The delta asks how far the mouth must OPEN from rest instead. For a
+# typical driver 0.05 + 0.55 = 0.60, matching MAR_THRESHOLD above.
+MAR_OPEN_DELTA = 0.55       # baseline MAR + 0.55
+MAR_THRESHOLD_MIN = 0.50    # floor; calibration can never go below this
+MAR_THRESHOLD_MAX = 0.65    # ceiling. Calibrating with lips already
+                            # parted pushes the bar up, and an unbounded
+                            # bar would sail past a real yawn (~0.70).
+                            # This is the one that actually bites.
 HEAD_YAW_THRESHOLD_OFFSET = 25       # baseline yaw + 25 deg
 HEAD_PITCH_THRESHOLD_OFFSET = 15     # baseline pitch + 15 deg
 

@@ -20,10 +20,13 @@ class Calibrator:
     Samples metrics for CALIBRATION_SECONDS and computes dynamic thresholds.
     """
 
-    def __init__(self, duration, ear_mult, mar_mult, yaw_offset, pitch_offset):
+    def __init__(self, duration, ear_mult, mar_delta, mar_min, mar_max,
+                 yaw_offset, pitch_offset):
         self._duration = duration
         self._ear_mult = ear_mult
-        self._mar_mult = mar_mult
+        self._mar_delta = mar_delta
+        self._mar_min = mar_min
+        self._mar_max = mar_max
         self._yaw_offset = yaw_offset
         self._pitch_offset = pitch_offset
         self.reset()
@@ -85,7 +88,13 @@ class Calibrator:
             baseline_pitch=avg_pitch,
             thresholds={
                 "ear": round(avg_ear * self._ear_mult, 4),
-                "mar": round(avg_mar * self._mar_mult, 4),
+                # Additive, not multiplicative: the MAR baseline is a
+                # closed mouth near zero, and no multiplier gets from
+                # there to a yawn. The floor keeps a driver who rests
+                # with parted lips from lowering their own bar.
+                "mar": round(min(self._mar_max,
+                                 max(self._mar_min,
+                                     avg_mar + self._mar_delta)), 4),
                 "yaw": round(avg_yaw + self._yaw_offset, 2),
                 "pitch": round(avg_pitch + self._pitch_offset, 2),
             },
