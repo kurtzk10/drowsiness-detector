@@ -3,6 +3,7 @@ from collections import deque
 from config import (
     EAR_ALERT_SECONDS, MAR_ALERT_SECONDS, HEAD_ALERT_SECONDS,
     ALERT_COOLDOWN_SECONDS, PERCLOS_WINDOW_SECONDS, PERCLOS_THRESHOLD,
+    PERCLOS_ALERT_SECONDS,
     EAR_THRESHOLD, MAR_THRESHOLD, HEAD_YAW_THRESHOLD, HEAD_PITCH_THRESHOLD,
     RECOVERY_SECONDS
 )
@@ -28,6 +29,7 @@ class StateManager:
             "eyes":    EAR_ALERT_SECONDS,
             "mouth":   MAR_ALERT_SECONDS,
             "head":    HEAD_ALERT_SECONDS,
+            "perclos": PERCLOS_ALERT_SECONDS,
         }
 
     # ── Core check ────────────────────────────────────────────────

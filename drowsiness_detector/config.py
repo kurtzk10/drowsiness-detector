@@ -19,6 +19,11 @@ EAR_ALERT_SECONDS = 2.0     # seconds eyes must stay closed to alert
 # Percentage of frames where EAR < threshold over a rolling window
 PERCLOS_WINDOW_SECONDS = 30  # rolling window duration in seconds
 PERCLOS_THRESHOLD = 0.80     # 80% of frames closed = drowsy
+# PERCLOS is already a rolling-window measure, so it needs no extra
+# sustain time — 0.0 means fire as soon as it crosses. What it does need
+# is the shared ALERT_COOLDOWN_SECONDS gate, which it gets by going
+# through StateManager.check() like every other alert.
+PERCLOS_ALERT_SECONDS = 0.0
 
 # --- MAR (Mouth Aspect Ratio) ---
 MAR_THRESHOLD = 0.60         # above this = mouth considered open (yawn)

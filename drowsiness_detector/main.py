@@ -338,7 +338,12 @@ def main():
                              f"Eyes closed > {int(ear*1000)/1000}",
                              time.time() + 3.0)
 
-        elif perclos_high and not state.in_cooldown("eyes"):
+        # Routed through check() like every other alert, so a sustained
+        # high reading fires once per ALERT_COOLDOWN_SECONDS instead of
+        # on every frame. The eyes-cooldown test comes first and has no
+        # side effects, so a PERCLOS alert is suppressed rather than
+        # merely delayed while a drowsy alert is still current.
+        elif not state.in_cooldown("eyes") and state.check("perclos", perclos_high):
             trigger_alert("perclos", http_client)
             alerts_fired += 1
             alert_active = True
