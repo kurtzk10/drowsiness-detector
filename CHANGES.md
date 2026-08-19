@@ -1,7 +1,7 @@
 # Change Log — 19 August 2026
 
-Everything below is on branch `build1.0`, **committed locally and not yet
-pushed**. Eleven commits, from `440fabb` to `dad6959`.
+Everything below is on branch `build1.1`, **committed locally and not yet
+pushed**. Sixteen commits, from `440fabb` to `1b6a041`.
 
 > **Before you pull:** `drowsy/` has been deleted. If you have uncommitted
 > work in there, say so first.
@@ -23,6 +23,9 @@ pushed**. Eleven commits, from `440fabb` to `dad6959`.
 | 9 | Fixed PERCLOS alert spam | `bc0dc27` |
 | 10 | Fixed alarm auto-clear | `7d669d6` |
 | 11 | Alert-delivery status, PERCLOS 0.15/60s, offline harness | `dad6959` |
+| 12 | Per-session CSV + summary logging | `6b3918a` |
+| 13 | CNN threshold 0.5 -> 0.9; PERCLOS empty-window guard | `827242a` |
+| 14 | EAR multiplier 0.85 -> 0.75; PERCLOS from the stricter verdict | `1b6a041` |
 
 Also: Python 3.11.9 installed at `C:\Python311\python.exe` with a project
 `.venv` — this is environment setup, not a commit.
