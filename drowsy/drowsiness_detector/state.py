@@ -24,7 +24,7 @@ class StateManager:
         # from calibration; defaults to the fixed config threshold.
         self.ear_threshold = EAR_THRESHOLD
 
-        # PERCLOS: rolling window of (timestamp, ear_value) tuples
+        # PERCLOS: rolling window of (timestamp, ear_value, closed) tuples
         self._ear_history = deque()
 
         # Durations per metric
@@ -72,13 +72,18 @@ class StateManager:
         return time.time() - self._start[name]
 
     # ── PERCLOS ───────────────────────────────────────────────────
-    def update_perclos(self, ear):
+    def update_perclos(self, ear, closed=None):
         """
-        Push current EAR reading into the rolling window.
+        Push the current frame's eye state into the rolling window.
         Returns current PERCLOS value (0.0 to 1.0).
+
+        `closed` optionally carries an explicit eyes-closed verdict (from the
+        EAR/CNN fusion) for this frame. When omitted the frame is scored from
+        EAR against the live threshold, which lets calibration retroactively
+        re-score samples captured before the per-driver cutoff was known.
         """
         now = time.time()
-        self._ear_history.append((now, ear))
+        self._ear_history.append((now, ear, closed))
         # Drop entries older than the window
         cutoff = now - PERCLOS_WINDOW_SECONDS
         while self._ear_history and self._ear_history[0][0] < cutoff:
@@ -87,8 +92,11 @@ class StateManager:
         if len(self._ear_history) == 0:
             return 0.0
 
-        closed = sum(1 for _, e in self._ear_history if e < self.ear_threshold)
-        return round(closed / len(self._ear_history), 4)
+        closed_count = sum(
+            1 for _, e, c in self._ear_history
+            if (c if c is not None else e < self.ear_threshold)
+        )
+        return round(closed_count / len(self._ear_history), 4)
 
     def is_drowsy_perclos(self, perclos):
         return perclos >= PERCLOS_THRESHOLD

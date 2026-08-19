@@ -66,3 +66,23 @@ IR_VIGNETTE = 0.35            # 0..1 — IR-illuminator hotspot: bright center,
                               #   darker edges. Higher = stronger falloff.
 IR_NOISE = 6.0                # std-dev of low-light sensor noise (0 = off).
                               #   The realistic stress on the detector.
+
+# --- CNN eye-state classifier (hybrid detection) ---
+# A small CNN classifies each eye crop as open/closed, complementing the
+# geometric EAR. EAR is robust but scale- and angle-sensitive; the CNN reads
+# appearance instead, so the two fail in different ways. If the model file is
+# missing or fails to load the system falls back to EAR alone automatically.
+CNN_ENABLED = True
+CNN_MODEL_PATH = "models/eye_state.tflite"   # relative to this file
+CNN_CLOSED_THRESHOLD = 0.5   # closed-probability above this = eyes closed
+CNN_EYE_MARGIN = 0.25        # crop padding as a fraction of eye width
+
+# How the CNN verdict combines with the EAR verdict:
+#   "ear"  - EAR only; CNN runs for display but never affects alerts
+#   "or"   - either says closed -> closed  (highest recall, more false alarms)
+#   "and"  - both must say closed         (fewest false alarms, lowest recall)
+#   "cnn"  - CNN decides; EAR used only when a crop is unavailable
+# "or" is the default: a missed drowsy driver is worse than a spurious alert,
+# and the existing duration gate (EAR_ALERT_SECONDS) already absorbs
+# single-frame noise before anything fires.
+CNN_FUSION_MODE = "or"

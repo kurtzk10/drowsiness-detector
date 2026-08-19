@@ -2,3 +2,8 @@ opencv-python>=4.8.0
 mediapipe>=0.10.0
 numpy>=1.24.0
 pygame>=2.5.0
+requests>=2.31.0
+flask>=3.0.0
+
+# CNN eye-state classifier (models/eye_state.tflite)
+ai-edge-litert>=1.0.0

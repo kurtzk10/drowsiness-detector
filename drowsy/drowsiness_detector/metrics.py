@@ -131,3 +131,61 @@ def get_eye_points_for_drawing(face_landmarks, img_w, img_h):
 
 def get_mouth_points_for_drawing(face_landmarks, img_w, img_h):
     return get_landmarks_array(face_landmarks, MOUTH, img_w, img_h)
+
+
+def _crop_eye(gray, pts, img_w, img_h, margin):
+    """
+    Cut one eye out of a grayscale frame using its landmark points.
+
+    The box around the 6 eye landmarks is padded by `margin` (a fraction of
+    the eye's own width) so the crop carries the lid and lash context the
+    classifier was trained on, not just the aperture. Returns None when the
+    eye falls outside the frame — the caller then skips CNN for this frame
+    rather than feeding the model a degenerate patch.
+    """
+    xs = [p[0] for p in pts]
+    ys = [p[1] for p in pts]
+    x0, x1 = min(xs), max(xs)
+    y0, y1 = min(ys), max(ys)
+
+    eye_w = x1 - x0
+    if eye_w <= 1:
+        return None
+
+    # Pad relative to eye width on both axes, so the patch keeps a
+    # consistent scale regardless of how far the driver sits from the lens.
+    pad_x = eye_w * margin
+    pad_y = eye_w * margin
+
+    cx0 = int(round(x0 - pad_x))
+    cx1 = int(round(x1 + pad_x))
+    cy0 = int(round(y0 - pad_y))
+    cy1 = int(round(y1 + pad_y))
+
+    # Clamp to frame bounds
+    cx0 = max(0, cx0)
+    cy0 = max(0, cy0)
+    cx1 = min(img_w, cx1)
+    cy1 = min(img_h, cy1)
+
+    if cx1 - cx0 < 2 or cy1 - cy0 < 2:
+        return None
+
+    crop = gray[cy0:cy1, cx0:cx1]
+    if crop.size == 0:
+        return None
+    return crop
+
+
+def get_eye_crops(face_landmarks, gray, img_w, img_h, margin=0.25):
+    """
+    Grayscale crops of both eyes, ready for the CNN eye-state classifier.
+
+    Returns (left_crop, right_crop); either may be None if that eye is out
+    of frame. `gray` must be single-channel — the classifier reshapes to
+    (1, 1, 32, 64) and a 3-channel patch would fail that reshape.
+    """
+    left_pts  = get_landmarks_array(face_landmarks, LEFT_EYE,  img_w, img_h)
+    right_pts = get_landmarks_array(face_landmarks, RIGHT_EYE, img_w, img_h)
+    return (_crop_eye(gray, left_pts,  img_w, img_h, margin),
+            _crop_eye(gray, right_pts, img_w, img_h, margin))
