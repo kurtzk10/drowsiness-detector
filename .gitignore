@@ -17,3 +17,10 @@ Thumbs.db
 
 # Session logs (research data — archive separately, not in git)
 logs/
+
+# Node
+package.json
+package-lock.json
+
+# Old models
+models/old/
