@@ -88,7 +88,7 @@ HEAD_PITCH_THRESHOLD_OFFSET = 15     # baseline pitch + 15 deg
 
 # --- Recovery ---
 # Seconds all metrics must remain normal before auto-clearing alert
-RECOVERY_SECONDS = 3.0
+RECOVERY_SECONDS = 8.0
 
 # --- Session logging ---
 # Writes logs/session_<stamp>.csv (one row per frame) and a .txt

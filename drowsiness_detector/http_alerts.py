@@ -67,7 +67,11 @@ class HttpAlertClient:
                 requests.post(
                     url,
                     json=payload,
-                    timeout=3.0,
+                    # Split connect/read: the phone launches AlarmActivity
+                    # before NanoHTTPD writes its response, so a single short
+                    # timeout fired mid-alarm and logged a delivery failure for
+                    # an alert the driver had already heard.
+                    timeout=(3.0, 15.0),
                     headers={"Connection": "close"},
                 )
                 # Any response — non-200 included — means the phone heard

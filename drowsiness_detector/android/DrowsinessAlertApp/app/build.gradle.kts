@@ -14,6 +14,31 @@ android {
         versionName = "1.0"
     }
 
+    signingConfigs {
+        // The release build is a test artifact, not something published, so it
+        // reuses the local debug keystore. That keeps release and debug builds
+        // from the same machine mutually installable — a release signed with a
+        // fresh key would refuse to install over an existing debug build.
+        create("releaseDebugKey") {
+            storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig = signingConfigs.getByName("releaseDebugKey")
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8

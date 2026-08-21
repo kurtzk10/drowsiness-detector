@@ -401,8 +401,13 @@ def main():
             # ── Auto-clear ────────────────────────────────────────────
             # Same verdicts that fired the alert, so recovery can never
             # disagree with detection.
-            if alert_active and state.is_driver_alert(eyes_closed, mouth_open,
-                                                      head_off):
+            # PERCLOS gates the clear as well: it accumulates over 60s, so
+            # the instantaneous verdicts can all read clear while the rolling
+            # window is still high, letting a brief glance forward dismiss an
+            # alarm that a minute of drowsiness raised.
+            if (alert_active
+                    and state.is_driver_alert(eyes_closed, mouth_open, head_off)
+                    and not perclos_high):
                 clear_alert(http_client)
                 alert_active = False
                 active_banner = None
