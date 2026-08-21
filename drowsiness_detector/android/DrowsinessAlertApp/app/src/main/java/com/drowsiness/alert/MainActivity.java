@@ -6,16 +6,9 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.Manifest;
-import android.media.AudioAttributes;
-import android.media.AudioManager;
-import android.media.MediaPlayer;
-import android.media.RingtoneManager;
-import android.net.Uri;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.os.IBinder;
-import android.os.VibrationEffect;
-import android.os.Vibrator;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
@@ -42,8 +35,6 @@ public class MainActivity extends AppCompatActivity {
     private EventLogAdapter eventAdapter;
     private final List<Event> events = new ArrayList<>();
 
-    private MediaPlayer mediaPlayer;
-    private Vibrator vibrator;
 
     // Current alert state
     private String currentAlertType = null;
@@ -92,8 +83,6 @@ public class MainActivity extends AppCompatActivity {
         eventLog.setLayoutManager(new LinearLayoutManager(this));
         eventLog.setAdapter(eventAdapter);
 
-        vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
-
         // Request notification permission for Android 13+
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
             if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
@@ -108,9 +97,8 @@ public class MainActivity extends AppCompatActivity {
 
         Button recalibrateButton = findViewById(R.id.recalibrateButton);
         recalibrateButton.setOnClickListener(v -> {
-            stopAlertSound();
-            if (vibrator != null) {
-                vibrator.cancel();
+            if (alertService != null) {
+                alertService.dismissAlarm();
             }
             Intent calIntent = new Intent(MainActivity.this, CalibrationActivity.class);
             calIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -150,11 +138,8 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
-        stopAlertSound();
-        if (mediaPlayer != null) {
-            mediaPlayer.release();
-            mediaPlayer = null;
-        }
+        // Nothing to tear down: the alarm belongs to AlertService now, and
+        // must keep sounding after this activity goes away.
         super.onDestroy();
     }
 
@@ -216,10 +201,8 @@ public class MainActivity extends AppCompatActivity {
         alertTimestamp.setText(sdf.format(new java.util.Date(timestamp)));
         alertDuration.setText("");
 
-        if (!alarmDismissed) {
-            playAlertSound(type);
-            vibrate(type);
-        }
+        // Sound and vibration already started in AlertService, which
+        // raises them whether or not this activity exists.
     }
 
     public void clearAlert(long timestamp) {
@@ -243,10 +226,6 @@ public class MainActivity extends AppCompatActivity {
         alertTimestamp.setText("");
         alertDuration.setText("");
 
-        stopAlertSound();
-        if (vibrator != null) {
-            vibrator.cancel();
-        }
         updateCounts();
     }
 
@@ -255,7 +234,12 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         if (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN && currentAlertType != null) {
-            stopAlarm();
+            // Only reached while this window has focus; AlarmController's
+            // MediaSession covers the screen-off and background cases.
+            if (alertService != null) {
+                alertService.dismissAlarm();
+            }
+            onAlarmDismissedExternally();
             return true;
         }
         return super.onKeyDown(keyCode, event);
@@ -278,57 +262,8 @@ public class MainActivity extends AppCompatActivity {
         countNotLooking.setText("LOOK: " + n);
     }
 
-    private void playAlertSound(String type) {
-        try {
-            stopAlertSound();
-            String uriStr = SettingsActivity.getRingtoneUri(this, type);
-            Uri alertUri = Uri.parse(uriStr);
-            if (alertUri == null) {
-                alertUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
-            }
-            int vol = SettingsActivity.getVolumePercent(this, type);
-            float volFloat = Math.max(0.5f, vol / 100f);
-            mediaPlayer = new MediaPlayer();
-            mediaPlayer.setAudioAttributes(new AudioAttributes.Builder()
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                    .setUsage(AudioAttributes.USAGE_ALARM)
-                    .build());
-            mediaPlayer.setDataSource(this, alertUri);
-            mediaPlayer.setLooping(true);
-            mediaPlayer.setVolume(volFloat, volFloat);
-            mediaPlayer.prepare();
-            mediaPlayer.start();
-        } catch (Exception e) {
-            // Sound might not work on all devices — not critical
-        }
-    }
-
-    private void stopAlertSound() {
-        if (mediaPlayer != null) {
-            try {
-                mediaPlayer.stop();
-            } catch (Exception ignored) {}
-            mediaPlayer.reset();
-        }
-    }
-
-    private void vibrate(String type) {
-        if (!SettingsActivity.isVibrationEnabled(this, type)) return;
-        if (vibrator != null && vibrator.hasVibrator()) {
-            long[] pattern = {0, 400, 200, 400};
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                vibrator.vibrate(VibrationEffect.createWaveform(pattern, 0));
-            } else {
-                vibrator.vibrate(pattern, 0);
-            }
-        }
-    }
-
-    private void stopAlarm() {
-        stopAlertSound();
-        if (vibrator != null) {
-            vibrator.cancel();
-        }
+    /** Called by AlertService once the alarm has actually been silenced. */
+    public void onAlarmDismissedExternally() {
         alarmDismissed = true;
         alertContainer.setBackgroundColor(getColor(R.color.normal_bg));
         alertTitle.setText("DISMISSED");

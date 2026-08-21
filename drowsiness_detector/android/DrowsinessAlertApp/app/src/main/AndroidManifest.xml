@@ -7,6 +7,18 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.VIBRATE" />
 
+    <!-- MEDIA_PLAYBACK: the service now owns the alarm audio itself.
+         WAKE_LOCK + wifi state: keep the CPU and Wi-Fi radio alive so the PC
+         can still reach the HTTP server once the screen has been off a while.
+         USE_FULL_SCREEN_INTENT: raise the alarm over the lock screen.
+         Battery-optimisation exemption: stops Doze killing the service. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
     <application
         android:usesCleartextTraffic="true"
         android:allowBackup="true"
@@ -29,6 +41,7 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTask"
             android:showOnLockScreen="true"
             android:showWhenLocked="true"
             android:turnScreenOn="true" />
@@ -40,7 +53,7 @@
         <service
             android:name=".AlertService"
             android:exported="false"
-            android:foregroundServiceType="dataSync" />
+            android:foregroundServiceType="dataSync|mediaPlayback" />
 
     </application>
 </manifest>
