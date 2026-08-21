@@ -24,3 +24,11 @@ package-lock.json
 
 # Old models
 models/old/
+
+# Android build outputs (Gradle regenerates these; committing them churns
+# hundreds of files on every build)
+drowsiness_detector/android/**/build/
+drowsiness_detector/android/**/.gradle/
+
+# Machine-specific SDK path — the file's own header says not to commit it
+drowsiness_detector/android/**/local.properties
