@@ -26,10 +26,10 @@ com.drowsiness.alert.app-drawerlayout-1.1.1-24 C:\Users\JUSTINELUISCALAGUAS\.gra
 com.drowsiness.alert.app-core-runtime-2.2.0-25 C:\Users\JUSTINELUISCALAGUAS\.gradle\caches\transforms-3\d2f184b3962f2ab62d39accf62f78e75\transformed\core-runtime-2.2.0\res
 com.drowsiness.alert.app-transition-1.2.0-26 C:\Users\JUSTINELUISCALAGUAS\.gradle\caches\transforms-3\e1a74b5e6f7f812c701cba3d9a9df323\transformed\transition-1.2.0\res
 com.drowsiness.alert.app-lifecycle-viewmodel-2.6.1-27 C:\Users\JUSTINELUISCALAGUAS\.gradle\caches\transforms-3\e3f36c350e554d48c014e22012d688a5\transformed\lifecycle-viewmodel-2.6.1\res
-com.drowsiness.alert.app-pngs-28 C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\build\generated\res\pngs\debug
-com.drowsiness.alert.app-resValues-29 C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\build\generated\res\resValues\debug
-com.drowsiness.alert.app-packageDebugResources-30 C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\build\intermediates\incremental\debug\packageDebugResources\merged.dir
-com.drowsiness.alert.app-packageDebugResources-31 C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\build\intermediates\incremental\debug\packageDebugResources\stripped.dir
-com.drowsiness.alert.app-merged_res-32 C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\build\intermediates\merged_res\debug
-com.drowsiness.alert.app-debug-33 C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\debug\res
-com.drowsiness.alert.app-main-34 C:\Users\JUSTINELUISCALAGUAS\Downloads\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\main\res
+com.drowsiness.alert.app-pngs-28 C:\Users\JUSTINELUISCALAGUAS\Desktop\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\build\generated\res\pngs\debug
+com.drowsiness.alert.app-resValues-29 C:\Users\JUSTINELUISCALAGUAS\Desktop\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\build\generated\res\resValues\debug
+com.drowsiness.alert.app-packageDebugResources-30 C:\Users\JUSTINELUISCALAGUAS\Desktop\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\build\intermediates\incremental\debug\packageDebugResources\merged.dir
+com.drowsiness.alert.app-packageDebugResources-31 C:\Users\JUSTINELUISCALAGUAS\Desktop\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\build\intermediates\incremental\debug\packageDebugResources\stripped.dir
+com.drowsiness.alert.app-merged_res-32 C:\Users\JUSTINELUISCALAGUAS\Desktop\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\build\intermediates\merged_res\debug
+com.drowsiness.alert.app-debug-33 C:\Users\JUSTINELUISCALAGUAS\Desktop\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\debug\res
+com.drowsiness.alert.app-main-34 C:\Users\JUSTINELUISCALAGUAS\Desktop\drowsy\drowsiness_detector\android\DrowsinessAlertApp\app\src\main\res

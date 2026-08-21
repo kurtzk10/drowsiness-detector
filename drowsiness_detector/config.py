@@ -11,6 +11,14 @@ import os
 # "http://192.168.x.x:81/stream" = ESP32-CAM or IP camera stream
 CAMERA_SOURCE = 0
 
+# --- Phone alerts ---
+# Static fallback used when UDP auto-discovery finds no phone within
+# DISCOVERY_TIMEOUT (10s) — e.g. the hotspot blocks broadcast packets or a
+# firewall drops them. The phone on an Android hotspot is usually 192.168.x.x.
+# Leave as None to rely on discovery alone.
+PHONE_IP = None
+PHONE_PORT = 5000
+
 # --- EAR (Eye Aspect Ratio) ---
 EAR_THRESHOLD = 0.25        # below this = eyes considered closed
 EAR_ALERT_SECONDS = 2.0     # seconds eyes must stay closed to alert

@@ -55,6 +55,10 @@ class HttpAlertClient:
             endpoint, payload = item
             with self._lock:
                 url = f"{self._base_url}{endpoint}"
+                host = self._base_url.split("//", 1)[1].split(":", 1)[0]
+            if host is None or host.lower() == "none":
+                print(f"[ALERTS] WARNING: invalid phone IP '{host}' — skipping request")
+                continue
             if requests is None:
                 self._record_failure("requests not installed")
                 continue
@@ -63,17 +67,22 @@ class HttpAlertClient:
                 requests.post(
                     url,
                     json=payload,
-                    timeout=1.0,
+                    timeout=3.0,
                     headers={"Connection": "close"},
                 )
+                # Any response — non-200 included — means the phone heard
+                # us and played the alarm, so count it as delivered.
+                self._record_success()
             except requests.exceptions.Timeout:
                 self._record_failure(f"timeout talking to {url}")
-            except requests.exceptions.ConnectionError:
-                self._record_failure(f"cannot reach {url}")
+            except requests.exceptions.ConnectionError as exc:
+                if (isinstance(exc.__context__, ConnectionRefusedError)
+                        or 'Connection refused' in str(exc)):
+                    self._record_failure(f"cannot reach {url}")
+                else:
+                    self._record_success()
             except Exception as e:
                 self._record_failure(f"{type(e).__name__} sending to {url}")
-            else:
-                self._record_success()
 
     # ── Delivery bookkeeping ──────────────────────────────────────
     def _record_success(self):
