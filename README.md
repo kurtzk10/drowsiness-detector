@@ -40,6 +40,63 @@ CAMERA_SOURCE = 1          # external USB webcam
 CAMERA_SOURCE = "http://192.168.4.1:81/stream"  # ESP32-CAM
 ```
 
+## Phone Alert App (Android)
+
+The detector pushes alerts to a companion Android app over the phone's own
+hotspot. Put the PC on that hotspot — the app and the detector find each other
+by UDP broadcast on port 9876, no IP configuration needed.
+
+### Build the APK
+
+Prerequisites, one time per machine:
+
+| Need | Notes |
+|---|---|
+| **JDK 17** | AGP 8.2 cannot parse Java 21+ version strings and fails with a bare version number as the error. `winget install Microsoft.OpenJDK.17` |
+| **Android SDK** | Platform 34 and build-tools 34.0.0: `sdkmanager "platforms;android-34" "build-tools;34.0.0"` |
+| **`ANDROID_HOME`** | Point it at your SDK, e.g. `C:\Users\<you>\AppData\Local\Android\Sdk` |
+
+Then, from `drowsiness_detector/android/DrowsinessAlertApp`:
+
+```powershell
+$env:JAVA_HOME = "C:\Program Files\Microsoft\jdk-17.0.20.8-hotspot"
+.\gradlew assembleDebug
+```
+
+The APK lands at `app/build/outputs/apk/debug/app-debug.apk`.
+
+`local.properties` is deliberately **not** in git — it hardcodes one machine's
+SDK path. Gradle falls back to `ANDROID_HOME`, so you do not need to create it.
+
+### Install it
+
+```powershell
+adb install -r app\build\outputs\apk\debug\app-debug.apk
+```
+
+Or copy the APK to the phone and tap it, granting "install unknown apps" to
+whichever app you tap from.
+
+> **Debug APKs are signed with a per-user keystore** (`~/.android/debug.keystore`).
+> An APK you built will not install *over* one a teammate built — Android
+> rejects the signature change. Uninstall the old app first; this clears its
+> data.
+
+### Check discovery worked
+
+With the app running and the PC on the phone's hotspot, startup should print:
+
+```
+[DISCOVERY] Phone detected at 10.x.x.x:5000, PC IP is 10.x.x.x
+```
+
+Both addresses must be on the hotspot subnet. If you instead see
+`Ignoring announcement from ...`, a VPN or hypervisor adapter is broadcasting
+on the same port and is being correctly rejected. If nothing appears within
+10s, discovery warns and disables phone alerts — check the app is running and
+that UDP 9876 is allowed through the firewall. Set `PHONE_IP` in `config.py`
+to skip discovery entirely.
+
 ## What It Detects
 - EAR below the calibrated cutoff for 2.0s → DROWSY (eyes closed too long)
 - CNN eye-state classifier agrees/disagrees → fused per `CNN_FUSION_MODE`
