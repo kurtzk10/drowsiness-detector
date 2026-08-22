@@ -40,6 +40,21 @@ CAMERA_SOURCE = 1          # external USB webcam
 CAMERA_SOURCE = "http://192.168.4.1:81/stream"  # ESP32-CAM
 ```
 
+**Wrong camera opens?** Indices are not stable. On Windows they follow
+DirectShow's enumeration order, so OBS — or any virtual-camera software —
+inserts a device and shifts the real webcam to a different number. The same
+index is a USB webcam on one laptop and the OBS Virtual Camera on another.
+
+Run the picker and look at the previews it writes:
+
+```powershell
+python tools\list_cameras.py
+```
+
+It grabs a frame from every index into `tools/camera_previews/`. Whichever
+image shows your face is the index to put in `CAMERA_SOURCE`. A preview
+showing a logo, a black frame, or a "camera off" icon is a virtual camera.
+
 ## Phone Alert App (Android)
 
 The detector pushes alerts to a companion Android app over the phone's own
