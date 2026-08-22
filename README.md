@@ -40,10 +40,22 @@ CAMERA_SOURCE = 1          # external USB webcam
 CAMERA_SOURCE = "http://192.168.4.1:81/stream"  # ESP32-CAM
 ```
 
-**Wrong camera opens?** Indices are not stable. On Windows they follow
-DirectShow's enumeration order, so OBS — or any virtual-camera software —
-inserts a device and shifts the real webcam to a different number. The same
-index is a USB webcam on one laptop and the OBS Virtual Camera on another.
+**Wrong camera opens?** An index on its own does not identify a camera.
+Windows has two capture backends — DirectShow and Media Foundation — and they
+enumerate devices independently, so on one laptop here index 0 is the built-in
+webcam under DSHOW and an **external USB camera** under MSMF. Installing OBS
+shifts the numbering again.
+
+So the backend is part of the address:
+
+```python
+CAMERA_SOURCE  = 0
+CAMERA_BACKEND = "msmf"     # "auto" | "dshow" | "msmf" | "any"
+```
+
+`"auto"` tries DirectShow first on Windows. Anything else is honoured exactly
+— if that backend cannot produce a frame the detector stops, rather than
+quietly opening a different camera and looking like it worked.
 
 Run the picker and look at the previews it writes:
 
@@ -51,8 +63,9 @@ Run the picker and look at the previews it writes:
 python tools\list_cameras.py
 ```
 
-It grabs a frame from every index into `tools/camera_previews/`. Whichever
-image shows your face is the index to put in `CAMERA_SOURCE`. A preview
+It grabs a frame from every index on every backend into
+`tools/camera_previews/`, then prints the `CAMERA_SOURCE` / `CAMERA_BACKEND`
+pair for each. Whichever image shows your face is the pair to use. A preview
 showing a logo, a black frame, or a "camera off" icon is a virtual camera.
 
 ## Phone Alert App (Android)

@@ -87,8 +87,14 @@ def main():
 
     print(f"\n[CAMERAS] Previews written to {PREVIEW_DIR}")
     print("[CAMERAS] Open that folder and find the image showing your face.")
-    print("[CAMERAS] Then set it in drowsiness_detector/config.py, e.g.:\n")
-    print(f"    CAMERA_SOURCE = {found[0][0]}")
+    print("[CAMERAS] The filename gives you BOTH values to set in")
+    print("[CAMERAS] drowsiness_detector/config.py — an index on its own is")
+    print("[CAMERAS] ambiguous, since the backends number devices separately:\n")
+
+    for index, name, _res, _path in found:
+        print(f"    index{index}_{name}.png  ->  CAMERA_SOURCE = {index}, "
+              f'CAMERA_BACKEND = "{name.lower()}"')
+
     print("\n  A preview showing a logo, a black frame, or a 'camera off'")
     print("  icon is a virtual camera (OBS and similar) — not the one you want.")
     return 0

@@ -6,10 +6,27 @@ import os
 # ─────────────────────────────────────────
 
 # --- Camera ---
-# 0 = built-in webcam
-# 1 = external USB webcam
-# "http://192.168.x.x:81/stream" = ESP32-CAM or IP camera stream
+# An index is only meaningful together with a backend: DirectShow and Media
+# Foundation enumerate devices separately, so index 0 can be the built-in
+# webcam on one and an external USB camera on the other, on the same laptop.
+# Installing OBS shifts the numbering again.
+#
+# Run `python tools/list_cameras.py` — it writes a preview frame per
+# index/backend, so you can pick the pair by sight.
+#
+# "http://192.168.x.x:81/stream" = ESP32-CAM or IP camera stream (backend
+# is ignored for URL sources; those always go through FFMPEG).
 CAMERA_SOURCE = 0
+
+# "auto"  = DirectShow first on Windows, then whatever OpenCV picks
+# "dshow" = force DirectShow      (Windows only)
+# "msmf"  = force Media Foundation (Windows only)
+# "any"   = let OpenCV choose
+#
+# Anything other than "auto" is honoured exactly: if the named backend cannot
+# produce a frame the detector stops rather than quietly opening a different
+# camera, since falling back is how you end up recording the wrong lens.
+CAMERA_BACKEND = "auto"
 
 # --- Phone alerts ---
 # Static fallback used when UDP auto-discovery finds no phone within

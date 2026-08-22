@@ -4,7 +4,7 @@ import time
 import sys
 import os
 
-from config import CAMERA_SOURCE, EAR_THRESHOLD, MAR_THRESHOLD, \
+from config import CAMERA_SOURCE, CAMERA_BACKEND, EAR_THRESHOLD, MAR_THRESHOLD, \
     HEAD_YAW_THRESHOLD, HEAD_PITCH_THRESHOLD, SHOW_LANDMARKS, \
     CALIBRATION_SECONDS, EAR_THRESHOLD_MULTIPLIER, MAR_OPEN_DELTA, MAR_THRESHOLD_MIN, MAR_THRESHOLD_MAX, \
     HEAD_YAW_THRESHOLD_OFFSET, HEAD_PITCH_THRESHOLD_OFFSET, \
@@ -90,28 +90,51 @@ def _first_frame(cap):
     return False
 
 
-def open_camera(source):
-    """Open `source`, preferring DirectShow for local device indices on Windows.
+BACKENDS = {
+    "dshow": ("DSHOW", cv2.CAP_DSHOW),
+    "msmf": ("MSMF", cv2.CAP_MSMF),
+    "any": ("default", cv2.CAP_ANY),
+}
 
-    OpenCV defaults to Media Foundation on Windows, which is slow to open,
-    commonly ignores the CAP_PROP_FRAME_* calls below, and has a habit of
-    reporting isOpened() on a device it then cannot read a single frame from.
-    DirectShow is the older API but behaves predictably for webcams.
 
-    The two backends also enumerate devices independently, so the same camera
-    can be index 0 under one and index 1 under the other. Pinning DSHOW here
-    keeps the numbering consistent with tools/list_cameras.py, which probes
-    DSHOW first.
+def open_camera(source, preference="auto"):
+    """Open `source` using the backend named by `preference`.
 
-    Only device indices get this treatment: a URL source (the ESP32-CAM MJPEG
-    stream) needs FFMPEG, and DSHOW cannot open it at all.
+    DirectShow and Media Foundation enumerate devices independently, so an
+    index names a different camera under each — on one laptop here, index 0 is
+    the built-in webcam under DSHOW and an external USB camera under MSMF. An
+    index alone therefore cannot identify a camera; the backend is part of the
+    address, which is why this is configurable rather than guessed.
+
+    "auto" tries DirectShow first on Windows, because MSMF is slow to open,
+    commonly ignores the CAP_PROP_FRAME_* calls below, and will report
+    isOpened() on a device it cannot then read a frame from.
+
+    A named backend is honoured exactly, with no fallback. Falling back would
+    open a different physical camera than the one asked for and say nothing —
+    worse than stopping, since the recording would look fine and show the
+    wrong lens.
+
+    URL sources ignore the preference entirely: the ESP32-CAM MJPEG stream
+    needs FFMPEG, which neither Windows backend provides.
 
     Returns an opened VideoCapture, or None.
     """
-    attempts = []
-    if isinstance(source, int) and sys.platform == "win32":
-        attempts.append(("DSHOW", cv2.CAP_DSHOW))
-    attempts.append(("default", cv2.CAP_ANY))
+    preference = (preference or "auto").lower()
+
+    if not isinstance(source, int):
+        attempts = [("default", cv2.CAP_ANY)]
+    elif preference == "auto":
+        attempts = []
+        if sys.platform == "win32":
+            attempts.append(BACKENDS["dshow"])
+        attempts.append(BACKENDS["any"])
+    elif preference in BACKENDS:
+        attempts = [BACKENDS[preference]]
+    else:
+        print(f"[ERROR] Unknown CAMERA_BACKEND {preference!r}; "
+              f"expected one of: auto, {', '.join(sorted(BACKENDS))}")
+        return None
 
     for name, backend in attempts:
         cap = cv2.VideoCapture(source, backend)
@@ -131,7 +154,7 @@ def open_camera(source):
                 print(f"[INFO] Camera opened via {name}")
             return cap
         print(f"[WARN] Camera opened via {name} but returned no frame after "
-              f"{WARMUP_READS} tries; falling back")
+              f"{WARMUP_READS} tries")
         cap.release()
 
     return None
@@ -153,12 +176,12 @@ def main():
 
     # ── Camera setup ──────────────────────────────────────────────
     print(f"[INFO] Opening camera: {CAMERA_SOURCE}")
-    cap = open_camera(CAMERA_SOURCE)
+    cap = open_camera(CAMERA_SOURCE, CAMERA_BACKEND)
     if cap is None:
         print("[ERROR] Cannot open camera. Check CAMERA_SOURCE in config.py")
-        print("[ERROR] Run 'python tools/list_cameras.py' to see which index "
-              "is which — indices shift when OBS or another virtual camera "
-              "is installed.")
+        print("[ERROR] Run 'python tools/list_cameras.py' to see which "
+              "index/backend pair is which — the same index is a different "
+              "camera under DSHOW and MSMF.")
         sys.exit(1)
 
     cap.set(cv2.CAP_PROP_FRAME_WIDTH,  640)
