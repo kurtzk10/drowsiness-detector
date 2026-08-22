@@ -76,6 +76,20 @@ def _pick_closest_face(face_landmarks_list, w, h):
     return best
 
 
+WARMUP_READS = 15          # ~1.5s; webcams often need a moment to wake
+WARMUP_DELAY = 0.1
+
+
+def _first_frame(cap):
+    """True once `cap` yields a real frame, allowing for sensor warm-up."""
+    for _ in range(WARMUP_READS):
+        ok, frame = cap.read()
+        if ok and frame is not None and frame.size > 0:
+            return True
+        time.sleep(WARMUP_DELAY)
+    return False
+
+
 def open_camera(source):
     """Open `source`, preferring DirectShow for local device indices on Windows.
 
@@ -106,13 +120,18 @@ def open_camera(source):
             continue
         # isOpened() is not proof of a usable camera — require a real frame
         # before committing, or the detector starts up and then stalls.
-        ok, _ = cap.read()
-        if ok:
+        #
+        # Retry rather than judging on a single read: a physical webcam
+        # routinely returns nothing for the first frames while its sensor
+        # starts up, and rejecting a backend on that would throw away a
+        # perfectly good camera. Virtual cameras answer immediately, which is
+        # why one read looked sufficient until this met real hardware.
+        if _first_frame(cap):
             if name != "default":
                 print(f"[INFO] Camera opened via {name}")
             return cap
-        print(f"[WARN] Camera opened via {name} but returned no frame; "
-              f"trying the next backend")
+        print(f"[WARN] Camera opened via {name} but returned no frame after "
+              f"{WARMUP_READS} tries; falling back")
         cap.release()
 
     return None
