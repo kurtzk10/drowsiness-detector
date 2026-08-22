@@ -76,6 +76,48 @@ def _pick_closest_face(face_landmarks_list, w, h):
     return best
 
 
+def open_camera(source):
+    """Open `source`, preferring DirectShow for local device indices on Windows.
+
+    OpenCV defaults to Media Foundation on Windows, which is slow to open,
+    commonly ignores the CAP_PROP_FRAME_* calls below, and has a habit of
+    reporting isOpened() on a device it then cannot read a single frame from.
+    DirectShow is the older API but behaves predictably for webcams.
+
+    The two backends also enumerate devices independently, so the same camera
+    can be index 0 under one and index 1 under the other. Pinning DSHOW here
+    keeps the numbering consistent with tools/list_cameras.py, which probes
+    DSHOW first.
+
+    Only device indices get this treatment: a URL source (the ESP32-CAM MJPEG
+    stream) needs FFMPEG, and DSHOW cannot open it at all.
+
+    Returns an opened VideoCapture, or None.
+    """
+    attempts = []
+    if isinstance(source, int) and sys.platform == "win32":
+        attempts.append(("DSHOW", cv2.CAP_DSHOW))
+    attempts.append(("default", cv2.CAP_ANY))
+
+    for name, backend in attempts:
+        cap = cv2.VideoCapture(source, backend)
+        if not cap.isOpened():
+            cap.release()
+            continue
+        # isOpened() is not proof of a usable camera — require a real frame
+        # before committing, or the detector starts up and then stalls.
+        ok, _ = cap.read()
+        if ok:
+            if name != "default":
+                print(f"[INFO] Camera opened via {name}")
+            return cap
+        print(f"[WARN] Camera opened via {name} but returned no frame; "
+              f"trying the next backend")
+        cap.release()
+
+    return None
+
+
 def main():
     # ── MediaPipe setup ───────────────────────────────────────────
     model_path = os.path.join(os.path.dirname(__file__), "face_landmarker.task")
@@ -92,9 +134,12 @@ def main():
 
     # ── Camera setup ──────────────────────────────────────────────
     print(f"[INFO] Opening camera: {CAMERA_SOURCE}")
-    cap = cv2.VideoCapture(CAMERA_SOURCE)
-    if not cap.isOpened():
+    cap = open_camera(CAMERA_SOURCE)
+    if cap is None:
         print("[ERROR] Cannot open camera. Check CAMERA_SOURCE in config.py")
+        print("[ERROR] Run 'python tools/list_cameras.py' to see which index "
+              "is which — indices shift when OBS or another virtual camera "
+              "is installed.")
         sys.exit(1)
 
     cap.set(cv2.CAP_PROP_FRAME_WIDTH,  640)
