@@ -10,6 +10,12 @@ from config import PHONE_IP, PHONE_PORT
 PHONE_DISCOVERY_PORT = 9876
 DISCOVERY_TIMEOUT = 10.0
 
+# How long the locked peer may go silent before another announcement is
+# allowed to replace it. The app announces every 2s, so this is several missed
+# announcements — long enough not to flap between two live devices, short
+# enough that a phone which changed address is picked up within a few seconds.
+PEER_TIMEOUT = 15.0
+
 
 def _usable_address(value):
     """Return `value` as an IPv4Address, or None if it cannot be a real peer.
@@ -92,6 +98,7 @@ class PhoneDiscovery:
         self._fallback_port = PHONE_PORT
         self._accept_lock = threading.Lock()
         self._reported = set()
+        self._last_seen = 0.0
 
     def start(self):
         if self._running:
@@ -163,18 +170,40 @@ class PhoneDiscovery:
                 phone_ip = addr[0]
                 phone_port = message.get("port", 5000)
 
-                # Already locked on: keep answering re-broadcasts so a phone
-                # that missed the first reply still learns the PC's address,
-                # but never re-target and never re-fire the callback.
                 if self._found_ip is not None:
                     if phone_ip == self._found_ip:
+                        # Keep answering re-broadcasts so a phone that missed
+                        # the first reply still learns the PC's address, and
+                        # note that the peer is still alive.
+                        self._last_seen = time.monotonic()
                         self._send_reply(addr)
-                    else:
+                        continue
+
+                    silent_for = time.monotonic() - self._last_seen
+                    if silent_for < PEER_TIMEOUT:
                         self._log_once(
                             f"ignored:{phone_ip}",
                             f"[DISCOVERY] Ignoring announcement from {phone_ip}"
                             f" — already locked to {self._found_ip}")
-                    continue
+                        continue
+
+                    # The locked address has stopped answering while some other
+                    # device is still announcing. Holding the lock forever was
+                    # the wrong call: a phone that renews its DHCP lease or
+                    # rejoins the network comes back on a different address, and
+                    # the detector would post to the dead one for the rest of
+                    # the session without a word. Release and re-evaluate — the
+                    # validation below still applies, so a bystander adapter
+                    # cannot take the slot just by waiting.
+                    print(f"[DISCOVERY] {self._found_ip} silent for "
+                          f"{silent_for:.0f}s — releasing lock and "
+                          f"re-evaluating")
+                    with self._accept_lock:
+                        self._found_ip = None
+                        self._found_port = None
+                        self._pc_ip = None
+                    self._reported.clear()
+                    # falls through to validate this announcement afresh
 
                 if phone_ip in local_addresses:
                     self._log_once(
@@ -204,6 +233,7 @@ class PhoneDiscovery:
                     self._found_ip = phone_ip
                     self._found_port = phone_port
                     self._pc_ip = pc_ip
+                    self._last_seen = time.monotonic()
 
                 print(f"[DISCOVERY] Phone detected at {phone_ip}:{phone_port}, "
                       f"PC IP is {pc_ip}")
@@ -247,6 +277,10 @@ class PhoneDiscovery:
                 return
             self._found_ip = self._fallback_ip
             self._found_port = self._fallback_port
+            # Deliberately left at 0: the fallback was never actually heard
+            # from, so the first phone that does announce should supersede it
+            # immediately rather than waiting out PEER_TIMEOUT.
+            self._last_seen = 0.0
 
         print(f"[DISCOVERY] No phone found in {DISCOVERY_TIMEOUT:.0f}s — "
               f"falling back to PHONE_IP={self._fallback_ip}")
