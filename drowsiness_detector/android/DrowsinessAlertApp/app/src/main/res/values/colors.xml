@@ -8,4 +8,5 @@
     <color name="log_item_bg">#2a2a3e</color>
     <color name="header_bg">#0f0f23</color>
     <color name="divider">#3a3a5e</color>
+    <color name="ic_launcher_background">#F6FAFD</color>
 </resources>
