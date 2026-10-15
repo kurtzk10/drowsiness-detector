@@ -16,19 +16,28 @@ public class MjpegStreamReader {
 
     private static final String TAG = "MjpegStreamReader";
 
+    // The detector sends ~10 frames a second, so a few seconds of silence
+    // means the connection is dead even if no error has surfaced.
+    private static final int READ_TIMEOUT_MS = 5000;
+    private static final long RETRY_DELAY_MS = 2000;
+
     private final String streamUrl;
     private final ImageView imageView;
     private final Handler handler;
     private final Runnable onConnected;
+    private final Runnable onDisconnected;
     private Thread thread;
     private volatile boolean running = false;
+    private volatile HttpURLConnection current;
 
     public MjpegStreamReader(String streamUrl, ImageView imageView,
-                             Handler handler, Runnable onConnected) {
+                             Handler handler, Runnable onConnected,
+                             Runnable onDisconnected) {
         this.streamUrl = streamUrl;
         this.imageView = imageView;
         this.handler = handler;
         this.onConnected = onConnected;
+        this.onDisconnected = onDisconnected;
     }
 
     public void start() {
@@ -41,24 +50,49 @@ public class MjpegStreamReader {
 
     public void stop() {
         running = false;
+        HttpURLConnection c = current;
+        if (c != null) {
+            c.disconnect();   // unblocks a read() waiting on the socket
+        }
         if (thread != null) {
             thread.interrupt();
             thread = null;
         }
     }
 
+    /**
+     * Keep the feed alive until stop().
+     *
+     * This used to connect once and give up on the first error, so a feed
+     * opened before the detector was serving — or one dropped when the
+     * detector restarted — stayed blank until the screen was reopened.
+     */
     private void run() {
+        while (running) {
+            boolean gotFrame = readStream();
+            if (!running) break;
+            if (gotFrame && onDisconnected != null) {
+                handler.post(onDisconnected);
+            }
+            try {
+                Thread.sleep(RETRY_DELAY_MS);
+            } catch (InterruptedException e) {
+                break;
+            }
+        }
+    }
+
+    /** Read one connection until it ends. Returns whether any frame arrived. */
+    private boolean readStream() {
         HttpURLConnection connection = null;
+        boolean gotFrame = false;
         try {
             URL url = new URL(streamUrl);
             connection = (HttpURLConnection) url.openConnection();
+            current = connection;
             connection.setConnectTimeout(5000);
-            connection.setReadTimeout(0);
+            connection.setReadTimeout(READ_TIMEOUT_MS);
             connection.connect();
-
-            if (onConnected != null) {
-                handler.post(onConnected);
-            }
 
             InputStream is = new BufferedInputStream(connection.getInputStream(), 131072);
             byte[] buf = new byte[4096];
@@ -111,6 +145,13 @@ public class MjpegStreamReader {
                                 final Bitmap bitmap = BitmapFactory.decodeByteArray(
                                         jpegBytes, 0, jpegBytes.length);
                                 if (bitmap != null) {
+                                    // Report "connected" on the first real
+                                    // frame, not on the TCP connect: a socket
+                                    // can open and still never deliver video.
+                                    if (!gotFrame && onConnected != null) {
+                                        handler.post(onConnected);
+                                    }
+                                    gotFrame = true;
                                     handler.post(() -> imageView.setImageBitmap(bitmap));
                                 }
                             }
@@ -119,11 +160,15 @@ public class MjpegStreamReader {
                 }
             }
         } catch (Exception e) {
-            Log.e(TAG, "Stream error", e);
+            if (running) {
+                Log.w(TAG, "Stream error, retrying: " + e.getMessage());
+            }
         } finally {
+            current = null;
             if (connection != null) {
                 connection.disconnect();
             }
         }
+        return gotFrame;
     }
 }

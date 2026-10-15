@@ -103,8 +103,10 @@ public class CalibrationActivity extends AppCompatActivity {
         stopStream();
         if (pcIp == null) return;
         String url = "http://" + pcIp + ":" + CALIBRATION_PORT + "/video_feed";
-        streamReader = new MjpegStreamReader(url, videoFeed, handler, () ->
-                runOnUiThread(() -> statusText.setText("Live feed connected"))
+        streamReader = new MjpegStreamReader(url, videoFeed, handler,
+                () -> runOnUiThread(() -> statusText.setText("Live feed connected")),
+                () -> runOnUiThread(() -> statusText.setText(
+                        "Live feed lost - reconnecting to " + pcIp + "..."))
         );
         streamReader.start();
     }
