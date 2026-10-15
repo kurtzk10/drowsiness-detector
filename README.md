@@ -6,6 +6,11 @@ fires an alert to an Android phone over a local hotspot — no internet.
 Eye closure is judged by two independent signals: the geometric Eye Aspect
 Ratio and a small CNN that reads the eye's appearance.
 
+There are two ways to run the laptop side: natively with Python (below), or
+in [Docker](#docker). Either way the phone needs the
+[alert app](#phone-alert-app-android) — download the APK from the
+[latest release](https://github.com/kurtzk10/drowsiness-detector-thesis/releases/latest).
+
 ## Quick Setup
 
 ### 1. Install dependencies
@@ -70,7 +75,9 @@ showing a logo, a black frame, or a "camera off" icon is a virtual camera.
 
 ## Docker
 
-The detector also ships as a container. One image, three modes:
+The detector also ships as a container. You need
+[Docker Desktop](https://www.docker.com/products/docker-desktop/) (WSL 2
+backend on Windows) running. One image, three modes:
 
 | Mode | Runs on | Camera | Window | Phone alerts |
 |---|---|---|---|---|
@@ -145,6 +152,19 @@ The detector pushes alerts to a companion Android app over the phone's own
 hotspot. Put the PC on that hotspot — the app and the detector find each other
 by UDP broadcast on port 9876, no IP configuration needed.
 
+The app rings the alarm even with the screen off or the app in the
+background, and the volume keys silence it. Its calibration screen shows the
+detector's live camera feed and runs calibration from the phone; if the feed
+drops (the detector restarted, or the phone opened the screen first) it
+reconnects on its own every 2s.
+
+### Download the APK
+
+Grab `drowsiness-alert.apk` from the
+[latest release](https://github.com/kurtzk10/drowsiness-detector-thesis/releases/latest),
+copy it to the phone and tap it, granting "install unknown apps" to whichever
+app you open it from. Android 8.0 or newer.
+
 ### Build the APK
 
 Prerequisites, one time per machine:
@@ -159,10 +179,13 @@ Then, from `drowsiness_detector/android/DrowsinessAlertApp`:
 
 ```powershell
 $env:JAVA_HOME = "C:\Program Files\Microsoft\jdk-17.0.20.8-hotspot"
-.\gradlew assembleDebug
+.\gradlew assembleRelease      # or assembleDebug
 ```
 
-The APK lands at `app/build/outputs/apk/debug/app-debug.apk`.
+The APK lands at `app/build/outputs/apk/release/app-release.apk`
+(`apk/debug/app-debug.apk` for a debug build). The release build is shrunk
+with R8 but signed with the same local debug key, so the two install over
+each other.
 
 `local.properties` is deliberately **not** in git — it hardcodes one machine's
 SDK path. Gradle falls back to `ANDROID_HOME`, so you do not need to create it.
@@ -170,16 +193,15 @@ SDK path. Gradle falls back to `ANDROID_HOME`, so you do not need to create it.
 ### Install it
 
 ```powershell
-adb install -r app\build\outputs\apk\debug\app-debug.apk
+adb install -r app\build\outputs\apk\release\app-release.apk
 ```
 
-Or copy the APK to the phone and tap it, granting "install unknown apps" to
-whichever app you tap from.
+Or copy the APK to the phone and tap it.
 
-> **Debug APKs are signed with a per-user keystore** (`~/.android/debug.keystore`).
-> An APK you built will not install *over* one a teammate built — Android
-> rejects the signature change. Uninstall the old app first; this clears its
-> data.
+> **Both build types are signed with a per-user keystore** (`~/.android/debug.keystore`).
+> An APK built on one machine will not install *over* one built on another —
+> including the release download — because Android rejects the signature
+> change. Uninstall the old app first; this clears its alarm settings.
 
 ### Check discovery worked
 
@@ -289,7 +311,11 @@ models/
 
 tools/
 ├── list_cameras.py     ← preview every camera index/backend
-└── validate_video.py   ← replay a recording offline, compare fusion modes
+├── validate_video.py   ← replay a recording offline, compare fusion modes
+└── webcam_bridge.py    ← webcam + phone discovery for the Docker container
+
+Dockerfile              ← detector image (MediaPipe 0.10.35, OpenCV 5.0)
+docker-compose.yml      ← validate / headless / live profiles
 
 training/               ← not needed to run; kept for the paper
 ├── dataset_prep.py     ← extracts eye crops from YawDD + NTHU-DD
