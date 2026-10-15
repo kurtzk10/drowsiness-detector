@@ -68,6 +68,77 @@ It grabs a frame from every index on every backend into
 pair for each. Whichever image shows your face is the pair to use. A preview
 showing a logo, a black frame, or a "camera off" icon is a virtual camera.
 
+## Docker
+
+The detector also ships as a container. One image, three modes:
+
+| Mode | Runs on | Camera | Window | Phone alerts |
+|---|---|---|---|---|
+| `validate` | Windows, macOS, Linux | a recorded clip | no | no |
+| `headless` | Windows, macOS, Linux | laptop webcam via the bridge | no | yes, auto-discovered by the bridge |
+| `live` | Linux / Raspberry Pi | USB webcam | yes | yes, auto-discovered |
+
+Build once:
+
+```powershell
+docker compose --profile validate build validate
+```
+
+**validate** — replay a clip through the real detection modules. Put the clip
+in `videos/`; the per-frame CSV is written next to it.
+
+```powershell
+docker compose --profile validate run --rm validate /videos/clip.mp4 --fusion or
+```
+
+**headless** — live detection with no window. Docker Desktop on Windows and
+macOS cannot pass a webcam into a container, and the phone's UDP discovery
+broadcast never reaches one. `tools/webcam_bridge.py` runs on the laptop and
+covers both: it streams the webcam to the container, and answers the phone's
+broadcast exactly as the native detector does. It needs only OpenCV:
+
+```powershell
+python -m pip install opencv-python
+python tools\webcam_bridge.py              # leave running; --source 1 for another camera
+```
+
+Then, in a second terminal:
+
+```powershell
+docker compose --profile headless up
+```
+
+With the laptop on the phone's hotspot and the alert app open, the bridge
+prints `[DISCOVERY] Phone detected at ...` and the container picks the phone
+up within a couple of seconds — no IP to type. The phone learns the laptop's
+address, so its video feed and calibrate screen work as they do natively.
+The first run may raise a Windows Firewall prompt for Python (UDP 9876) and
+for Docker (TCP 8080): allow both on private networks.
+
+Calibration also starts on its own the first time a face is seen, since there
+is no keyboard. `http://localhost:8080/video_feed` shows the camera feed in a
+browser.
+
+Overrides, all optional: `CAMERA_SOURCE` (a phone IP-camera app's
+`http://<phone-ip>:8080/video`, or `/videos/clip.mp4`), and `PHONE_IP` to
+name the phone by hand if discovery is blocked.
+
+**live** — the full system as it runs natively, on a Linux host with a
+display:
+
+```bash
+xhost +local:docker
+docker compose --profile live up
+```
+
+Host networking lets the phone discover the detector over the hotspot as
+usual, and the webcam at `/dev/video0` is passed through (`CAMERA_DEVICE` to
+use another). Session logs from every mode land in `logs/`.
+
+Settings that differ per machine come from environment variables instead of
+`config.py`: `CAMERA_SOURCE`, `CAMERA_BACKEND`, `PHONE_IP`, `PHONE_PORT`,
+`PHONE_DISCOVERY_URL`, `SESSION_LOG_DIR` and `HEADLESS`.
+
 ## Phone Alert App (Android)
 
 The detector pushes alerts to a companion Android app over the phone's own

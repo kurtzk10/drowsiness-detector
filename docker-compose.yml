@@ -1,0 +1,63 @@
+# Pick a mode with --profile. All three share one image.
+#
+#   docker compose --profile validate run --rm validate /videos/clip.mp4
+#   docker compose --profile headless up
+#   docker compose --profile live up          # Linux / Raspberry Pi only
+#
+# Logs land in ./logs; put clips to replay in ./videos.
+
+x-detector: &detector
+  build: .
+  image: drowsiness-detector
+  volumes:
+    - ./logs:/app/logs
+    - ./videos:/videos
+
+services:
+  # Replays a recorded clip through the real detection modules — no camera,
+  # window or phone. Works on Windows, macOS and Linux.
+  validate:
+    <<: *detector
+    profiles: ["validate"]
+    working_dir: /app
+    entrypoint: ["python", "tools/validate_video.py"]
+    command: ["--help"]
+
+  # Live detection without a window, for Docker Desktop (Windows/macOS).
+  # Run tools/webcam_bridge.py on the laptop first: it streams the webcam in
+  # and does the phone discovery Docker Desktop's network blocks.
+  headless:
+    <<: *detector
+    profiles: ["headless"]
+    environment:
+      HEADLESS: "1"
+      # the bridge by default; or a stream URL, or /videos/<clip>.mp4
+      CAMERA_SOURCE: ${CAMERA_SOURCE:-http://host.docker.internal:8554/video}
+      PHONE_DISCOVERY_URL: ${PHONE_DISCOVERY_URL:-http://host.docker.internal:8554/phone}
+      PHONE_IP: ${PHONE_IP:-}            # optional manual override
+      PHONE_PORT: ${PHONE_PORT:-5000}
+    ports:
+      # the phone app's video feed + calibrate button, and
+      # http://localhost:8080/video_feed in a browser
+      - "8080:8080"
+    stop_signal: SIGTERM
+
+  # Full system as it runs natively: webcam, preview window, and phone
+  # discovery over the hotspot. Needs a Linux host (host networking and
+  # /dev/video0) with an X display. Run `xhost +local:docker` first.
+  live:
+    <<: *detector
+    profiles: ["live"]
+    network_mode: host
+    devices:
+      - ${CAMERA_DEVICE:-/dev/video0}:/dev/video0
+    environment:
+      DISPLAY: ${DISPLAY:-:0}
+      QT_X11_NO_MITSHM: "1"
+      CAMERA_SOURCE: ${CAMERA_SOURCE:-0}
+      CAMERA_BACKEND: any
+      PHONE_IP: ${PHONE_IP:-}
+    volumes:
+      - ./logs:/app/logs
+      - ./videos:/videos
+      - /tmp/.X11-unix:/tmp/.X11-unix

@@ -3,13 +3,15 @@ import mediapipe as mp
 import time
 import sys
 import os
+import signal
 
 from config import CAMERA_SOURCE, CAMERA_BACKEND, EAR_THRESHOLD, MAR_THRESHOLD, \
     HEAD_YAW_THRESHOLD, HEAD_PITCH_THRESHOLD, SHOW_LANDMARKS, \
     CALIBRATION_SECONDS, EAR_THRESHOLD_MULTIPLIER, MAR_OPEN_DELTA, MAR_THRESHOLD_MIN, MAR_THRESHOLD_MAX, \
     HEAD_YAW_THRESHOLD_OFFSET, HEAD_PITCH_THRESHOLD_OFFSET, \
     CNN_ENABLED, CNN_MODEL_PATH, CNN_CLOSED_THRESHOLD, CNN_EYE_MARGIN, \
-    CNN_FUSION_MODE, PERCLOS_FUSION_MODE, IR_MODE, SESSION_LOG, SESSION_LOG_DIR
+    CNN_FUSION_MODE, PERCLOS_FUSION_MODE, IR_MODE, SESSION_LOG, SESSION_LOG_DIR, HEADLESS, \
+    PHONE_DISCOVERY_URL
 from metrics import (calculate_EAR, calculate_MAR, calculate_head_pose,
                      get_eye_points_for_drawing, get_mouth_points_for_drawing,
                      LEFT_EYE, RIGHT_EYE, extract_eye_crop)
@@ -18,7 +20,7 @@ from alert import trigger_alert, clear_alert
 from display import draw_landmarks, draw_ui, draw_alert_banner, draw_no_face
 from http_alerts import HttpAlertClient
 from calibration import Calibrator
-from discovery import PhoneDiscovery
+from discovery import PhoneDiscovery, BridgeDiscovery
 from streamer import Streamer
 from filters import apply_ir_filter
 from session_log import SessionLogger
@@ -33,6 +35,17 @@ if _parent not in sys.path:
     sys.path.insert(0, _parent)
 
 from inference.eye_classifier import EyeClassifier
+
+
+WINDOW_TITLE = "Drowsiness Detector — Q to quit, C to calibrate"
+
+
+def _show(frame):
+    """Show the frame and return the key pressed, or -1 when headless."""
+    if HEADLESS:
+        return -1
+    cv2.imshow(WINDOW_TITLE, frame)
+    return cv2.waitKey(1) & 0xFF
 
 
 def fuse_eye_state(ear_closed, cnn_closed, mode):
@@ -161,6 +174,10 @@ def open_camera(source, preference="auto"):
 
 
 def main():
+    # `docker stop` sends SIGTERM, which would otherwise kill the process
+    # without running the finally block below — losing the session log.
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
+
     # ── MediaPipe setup ───────────────────────────────────────────
     model_path = os.path.join(os.path.dirname(__file__), "face_landmarker.task")
     options = FaceLandmarkerOptions(
@@ -184,6 +201,11 @@ def main():
               "camera under DSHOW and MSMF.")
         sys.exit(1)
 
+    # A recorded clip ends; a camera or stream that stops returning frames
+    # is a glitch worth retrying.
+    source_is_file = (isinstance(CAMERA_SOURCE, str)
+                      and os.path.isfile(CAMERA_SOURCE))
+
     cap.set(cv2.CAP_PROP_FRAME_WIDTH,  640)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
     cap.set(cv2.CAP_PROP_FPS, 30)
@@ -191,9 +213,11 @@ def main():
     # ── State ─────────────────────────────────────────────────────
     state = StateManager()
     http_client = HttpAlertClient()
-    discovery = PhoneDiscovery(
-        on_phone_found=lambda ip, port: http_client.update_phone(ip, port)
-    )
+    on_phone_found = lambda ip, port: http_client.update_phone(ip, port)
+    if PHONE_DISCOVERY_URL:
+        discovery = BridgeDiscovery(PHONE_DISCOVERY_URL, on_phone_found)
+    else:
+        discovery = PhoneDiscovery(on_phone_found=on_phone_found)
     discovery.start()
     streamer = Streamer()
     streamer.start()
@@ -254,7 +278,12 @@ def main():
     cal_phone_requested = False
     ir_enabled = IR_MODE
 
-    print("[INFO] System running. Q=quit, C=calibrate, I=toggle IR sim.")
+    if HEADLESS:
+        print("[INFO] Headless: no window. Calibration starts when a face is "
+              "first seen; Ctrl-C to stop.")
+    else:
+        print("[INFO] System running. Q=quit, C=calibrate, I=toggle IR sim.")
+    auto_calibrate = HEADLESS
     if ir_enabled:
         print("[INFO] IR simulation ON (monochrome).")
     print("[INFO] Look at the camera to begin detection.")
@@ -263,6 +292,9 @@ def main():
         while True:
             ret, frame = cap.read()
             if not ret:
+                if source_is_file:
+                    print("[INFO] End of video file.")
+                    break
                 print("[WARN] Frame read failed — retrying...")
                 time.sleep(0.05)
                 continue
@@ -296,6 +328,12 @@ def main():
                 alert_active = False
                 cal_phone_requested = True
                 print("[CALIB] Remote calibration triggered by phone...")
+
+            # ── Headless: calibrate on the first face seen ────────────
+            if auto_calibrate and results.face_landmarks:
+                auto_calibrate = False
+                calibrator.start()
+                print("[CALIB] Face found — calibrating, look straight ahead...")
 
             # ── Handle calibration sampling ───────────────────────────
             if calibrator.is_running():
@@ -348,8 +386,7 @@ def main():
                 _, jpeg = cv2.imencode(".jpg", raw_feed, [cv2.IMWRITE_JPEG_QUALITY, 55])
                 streamer.push_jpeg(jpeg.tobytes())
 
-                cv2.imshow("Drowsiness Detector — Q to quit, C to calibrate", frame)
-                key = cv2.waitKey(1) & 0xFF
+                key = _show(frame)
                 if key == ord('q'):
                     break
                 continue
@@ -369,8 +406,7 @@ def main():
                 draw_no_face(frame)
                 _, jpeg = cv2.imencode(".jpg", raw_feed, [cv2.IMWRITE_JPEG_QUALITY, 55])
                 streamer.push_jpeg(jpeg.tobytes())
-                cv2.imshow("Drowsiness Detector — Q to quit, C to calibrate", frame)
-                key = cv2.waitKey(1) & 0xFF
+                key = _show(frame)
                 if key == ord('q'):
                     break
                 if key == ord('c'):
@@ -387,8 +423,7 @@ def main():
                 draw_no_face(frame)
                 _, jpeg = cv2.imencode(".jpg", raw_feed, [cv2.IMWRITE_JPEG_QUALITY, 55])
                 streamer.push_jpeg(jpeg.tobytes())
-                cv2.imshow("Drowsiness Detector — Q to quit, C to calibrate", frame)
-                key = cv2.waitKey(1) & 0xFF
+                key = _show(frame)
                 if key == ord('q'):
                     break
                 if key == ord('c'):
@@ -528,8 +563,7 @@ def main():
             _, jpeg = cv2.imencode(".jpg", raw_feed, [cv2.IMWRITE_JPEG_QUALITY, 55])
             streamer.push_jpeg(jpeg.tobytes())
 
-            cv2.imshow("Drowsiness Detector — Q to quit, C to calibrate", frame)
-            key = cv2.waitKey(1) & 0xFF
+            key = _show(frame)
             if key == ord('q'):
                 break
             if key == ord('c'):
@@ -546,7 +580,8 @@ def main():
         # exactly when its buffered rows matter most.
         logger.close()
         cap.release()
-        cv2.destroyAllWindows()
+        if not HEADLESS:
+            cv2.destroyAllWindows()
         face_landmarker.close()
         http_client.shutdown()
         streamer.stop()

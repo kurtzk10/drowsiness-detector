@@ -302,3 +302,81 @@ class PhoneDiscovery:
     @property
     def found(self):
         return self._found_ip is not None
+
+
+class BridgeDiscovery:
+    """
+    Phone discovery for the detector running inside Docker Desktop.
+
+    The phone's UDP broadcast never reaches a container behind Docker
+    Desktop's NAT, so tools/webcam_bridge.py does the discovery on the host
+    — where it can also tell the phone the laptop's real address — and this
+    asks the bridge which phone it found. Same interface as PhoneDiscovery.
+    """
+
+    POLL_SECONDS = 2.0
+
+    def __init__(self, url, on_phone_found=None):
+        self._url = url
+        self._on_phone_found = on_phone_found
+        self._running = False
+        self._thread = None
+        self._found_ip = None
+        self._found_port = None
+        self._warned = False
+
+    def start(self):
+        if self._running:
+            return
+        self._running = True
+        # A manually configured phone works straight away; the bridge's
+        # answer replaces it if it finds a different one.
+        if PHONE_IP:
+            self._accept(PHONE_IP, PHONE_PORT, "PHONE_IP from config")
+        self._thread = threading.Thread(target=self._poll, daemon=True)
+        self._thread.start()
+        print(f"[DISCOVERY] Asking the host bridge for the phone: {self._url}")
+
+    def stop(self):
+        self._running = False
+        if self._thread is not None:
+            self._thread.join(timeout=2.0)
+            self._thread = None
+
+    def _accept(self, ip, port, how):
+        self._found_ip, self._found_port = ip, port
+        print(f"[DISCOVERY] Phone at {ip}:{port} ({how})")
+        if self._on_phone_found:
+            self._on_phone_found(ip, port)
+
+    def _poll(self):
+        from urllib.request import urlopen
+        started = time.monotonic()
+        while self._running:
+            try:
+                with urlopen(self._url, timeout=2.0) as resp:
+                    info = json.loads(resp.read().decode("utf-8"))
+                ip, port = info.get("ip"), int(info.get("port") or PHONE_PORT)
+                if ip and (ip, port) != (self._found_ip, self._found_port):
+                    self._accept(ip, port, "found by the host bridge")
+            except Exception as exc:
+                if (not self._warned
+                        and time.monotonic() - started > DISCOVERY_TIMEOUT):
+                    self._warned = True
+                    print(f"[DISCOVERY] WARNING: cannot reach the host bridge "
+                          f"at {self._url} ({type(exc).__name__}). Start "
+                          f"tools/webcam_bridge.py on the laptop, or set "
+                          f"PHONE_IP.")
+            time.sleep(self.POLL_SECONDS)
+
+    @property
+    def phone_ip(self):
+        return self._found_ip
+
+    @property
+    def phone_port(self):
+        return self._found_port
+
+    @property
+    def found(self):
+        return self._found_ip is not None

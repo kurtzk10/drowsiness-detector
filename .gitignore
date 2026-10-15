@@ -4,6 +4,12 @@
 !/*/
 !/.gitignore
 !/README.md
+!/Dockerfile
+!/.dockerignore
+!/docker-compose.yml
+
+# Clips mounted into the Docker container for replay
+videos/
 
 # Python
 __pycache__/

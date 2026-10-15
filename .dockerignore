@@ -1,0 +1,20 @@
+# Only the detector, inference code, models and tools go into the image.
+.git
+.idea
+.vscode
+.venv
+venv
+**/__pycache__
+**/*.py[cod]
+
+# Not needed at runtime
+drowsiness_detector/android
+training
+appendix_f_code_snippets
+logs
+videos
+*.md
+!README.md
+*.docx
+*.apk
+*.pdf

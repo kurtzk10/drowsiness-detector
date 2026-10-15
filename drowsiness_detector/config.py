@@ -170,3 +170,41 @@ IR_GAMMA = 1.4                # >1 lifts midtones so skin looks pale/luminous
 IR_VIGNETTE = 0.35            # 0..1 — IR-illuminator hotspot: bright center,
                               #   darker edges. Higher = stronger falloff.
 IR_NOISE = 6.0                # std-dev of low-light sensor noise (0 = off).
+
+# ── Container / headless overrides ─────────────
+# A container cannot edit this file per machine, so these few settings can
+# also come from environment variables (see docker-compose.yml). Unset
+# variables leave the values above untouched.
+#
+# HEADLESS=1 runs without the OpenCV window: no keyboard, so calibration
+# starts by itself the first time a face is seen, and Ctrl-C / docker stop
+# ends the session.
+HEADLESS = False
+
+
+def _env_flag(name, default):
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in ("1", "true", "yes", "on")
+
+
+def _env_source(name, default):
+    value = os.environ.get(name)
+    if not value:
+        return default
+    # "0" means device index 0; anything else is a URL or file path
+    return int(value) if value.strip().isdigit() else value.strip()
+
+
+CAMERA_SOURCE = _env_source("CAMERA_SOURCE", CAMERA_SOURCE)
+CAMERA_BACKEND = os.environ.get("CAMERA_BACKEND") or CAMERA_BACKEND
+PHONE_IP = os.environ.get("PHONE_IP") or PHONE_IP
+PHONE_PORT = int(os.environ.get("PHONE_PORT") or PHONE_PORT)
+SESSION_LOG_DIR = os.environ.get("SESSION_LOG_DIR") or SESSION_LOG_DIR
+HEADLESS = _env_flag("HEADLESS", HEADLESS)
+
+# Set inside Docker Desktop, where the phone's broadcast cannot reach the
+# container: tools/webcam_bridge.py discovers the phone on the host instead
+# and answers here. Unset (the default) = normal UDP discovery.
+PHONE_DISCOVERY_URL = os.environ.get("PHONE_DISCOVERY_URL") or None
