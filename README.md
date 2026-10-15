@@ -23,7 +23,7 @@ cd drowsiness_detector
 Expected on startup:
 ```
 [CLASSIFIER] Loaded model from ...models\eye_state.tflite (259.4 KB)
-[INFO] CNN fusion mode: or (closed if p > 0.5)
+[INFO] CNN fusion mode: or (closed if p > 0.9)
 ```
 
 ### 3. Keys
@@ -126,12 +126,32 @@ that UDP 9876 is allowed through the firewall. Set `PHONE_IP` in `config.py`
 to skip discovery entirely.
 
 ## What It Detects
-- EAR below the calibrated cutoff for 2.0s → DROWSY (eyes closed too long)
-- CNN eye-state classifier agrees/disagrees → fused per `CNN_FUSION_MODE`
-- PERCLOS > 80% in window   → DROWSY (sustained eye closure)
-- MAR > 0.60 for 3.0s       → YAWNING
-- Yaw > 30deg for 1.5s      → NOT LOOKING (head turned)
-- Pitch > 20deg for 1.5s    → NOT LOOKING (head tilted)
+| Alert | Fires when | Held for |
+|---|---|---|
+| DROWSY | eyes closed (EAR and CNN fused per `CNN_FUSION_MODE`) | 2.0s |
+| DROWSY (PERCLOS) | eyes closed in ≥ 15% of the last 60s | 5.0s |
+| YAWNING | MAR above the yawn threshold | 3.0s |
+| NOT LOOKING | head yaw or pitch past the limit | 1.5s |
+
+The same alert cannot repeat within 4s. Once every signal has been normal for
+8s (and PERCLOS is back under 15%), the phone alarm clears on its own.
+
+PERCLOS reports 0 until it has 30s of history, so it cannot fire at startup,
+and it only counts frames where EAR **and** the CNN both say closed
+(`PERCLOS_FUSION_MODE = "and"`), so single-frame noise does not pile up over
+the 60s window.
+
+### Thresholds and calibration
+Press `C` (or tap calibrate in the phone app) and look straight ahead for 5s.
+The detector takes the median of each metric and sets per-driver thresholds:
+
+| Signal | Before calibration (`config.py`) | After calibration |
+|---|---|---|
+| EAR (eyes closed) | below 0.25 | below baseline × 0.75 |
+| CNN (eyes closed) | probability above 0.9 | unchanged |
+| MAR (yawn) | above 0.60 | above baseline + 0.55, kept within 0.50–0.65 |
+| Head yaw | beyond ±30° | beyond baseline ±25° |
+| Head pitch | beyond ±20° | beyond baseline ±15° |
 
 ## EAR + CNN fusion
 `CNN_FUSION_MODE` in `config.py` decides how the two eye signals combine:
@@ -147,12 +167,30 @@ If the model is missing, fails to load, or both eye crops leave the frame,
 every mode falls back to EAR — the system never ends up with no verdict.
 
 ## Tuning (config.py)
-- Too many false alerts: raise `EAR_THRESHOLD` slightly (e.g. 0.22)
-- Missing real drowsiness: lower `EAR_THRESHOLD` (e.g. 0.28)
+After calibration the EAR cutoff comes from `EAR_THRESHOLD_MULTIPLIER`, not
+`EAR_THRESHOLD`, so that is the one to adjust:
+- Too many false alerts: **lower** `EAR_THRESHOLD_MULTIPLIER` (e.g. 0.70) —
+  eyes must close further before they count as closed
+- Missing real drowsiness: **raise** it (e.g. 0.80)
 - Blinks triggering alert: raise `EAR_ALERT_SECONDS` (e.g. 2.5)
+- CNN calling open eyes closed: raise `CNN_CLOSED_THRESHOLD`; at 0.5 it gave a
+  23% false-positive rate on live footage, at 0.9 about 1%
+- `EAR_THRESHOLD` (0.25) only applies until the driver calibrates.
 - `CNN_EYE_MARGIN` **must stay 0.3** — it has to match the crop margin in
   `training/dataset_prep.py`, or inference feeds the model patches unlike
   anything it was trained on.
+
+To compare settings without a live drive, replay a recording through the real
+detection modules:
+
+```powershell
+python tools\validate_video.py clip.mp4 --fusion and
+```
+
+## Session logs
+Every run writes `logs/session_<date>_<time>.csv` (one row per frame) and a
+matching `.txt` summary at the repository root. `logs/` is gitignored — it is
+participant research data, so archive it separately.
 
 ## Layout
 ```
@@ -166,16 +204,21 @@ drowsiness_detector/
 ├── http_alerts.py   ← HTTP client (laptop → phone)
 ├── discovery.py     ← UDP broadcast phone discovery
 ├── streamer.py      ← MJPEG feed on port 8080
+├── session_log.py   ← per-frame CSV + session summary
 ├── filters.py       ← IR / night-vision simulation
-└── display.py       ← OpenCV UI drawing
+├── display.py       ← OpenCV UI drawing
+└── android/DrowsinessAlertApp/   ← phone alert app (Java)
 
 inference/
 └── eye_classifier.py   ← TFLite eye-state CNN wrapper
 
 models/
 ├── eye_state.tflite    ← trained model (259 KB)
-├── best_eye_cnn.pth    ← PyTorch checkpoint
-└── old/                ← superseded model, kept for comparison
+└── best_eye_cnn.pth    ← PyTorch checkpoint
+
+tools/
+├── list_cameras.py     ← preview every camera index/backend
+└── validate_video.py   ← replay a recording offline, compare fusion modes
 
 training/               ← not needed to run; kept for the paper
 ├── dataset_prep.py     ← extracts eye crops from YawDD + NTHU-DD
@@ -191,5 +234,6 @@ training/               ← not needed to run; kept for the paper
 | Input | `[1, 1, 32, 64]` float32, NCHW, grayscale |
 | Output | `[1, 2]` logits — class 0 = OPEN, class 1 = CLOSED |
 | Preprocessing | `/255`, then `(x - 0.5) / 0.5` → `[-1, 1]` |
-| Accuracy | 87.3% (video-based split) |
+| Accuracy | 90.45% (video-based split, no subject in both train and validation) |
+| Precision / specificity | 86.21% / 94.46% |
 | Cost | ~0.3 ms per frame for both eyes |
